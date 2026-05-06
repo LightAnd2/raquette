@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Model weights (too large for git — stored on HF)
+ml/models/weights/*.pt
+ml/models/weights/*.pth
+
+# Uploaded videos
+backend/uploads/
+
+# Training data
+data/
+notebooks/data/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Env
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Claude memory (local only)
+.claude/
