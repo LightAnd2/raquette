@@ -73,7 +73,7 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
     contact_cooldown = 0      # frames since last shot (avoid double-counting)
 
     idx = 0
-    SKIP = 2   # process every 2nd frame for speed
+    SKIP = 4   # process every 4th frame for speed
 
     import mediapipe as mp
     pose_est = mp.solutions.pose.Pose(

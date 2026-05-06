@@ -23,6 +23,12 @@ export default function Analysis() {
   const [stats, setStats] = useState({ rallyLength: 0, ballSpeed: 0, shotTally: {} })
   const pollRef = useRef(null)
 
+  // Keep HF Space alive — ping every 25s so it doesn't sleep mid-job
+  useEffect(() => {
+    const ping = setInterval(() => api.job('ping').catch(() => {}), 25000)
+    return () => clearInterval(ping)
+  }, [])
+
   useEffect(() => {
     pollRef.current = setInterval(async () => {
       try {
