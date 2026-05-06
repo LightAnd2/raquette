@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, ChevronDown } from 'lucide-react'
-import SampleAnalysis from '../components/SampleAnalysis'
 import { api } from '../api'
 
 export default function Landing() {
@@ -161,7 +160,7 @@ export default function Landing() {
       {/* Divider */}
       <div className="w-full h-px bg-[#1B4332]/10" />
 
-      {/* Sample analysis demo */}
+      {/* Demo video */}
       <section id="sample" className="py-24 px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -170,7 +169,7 @@ export default function Landing() {
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
           className="text-center mb-14"
         >
-          <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-3">Live demo</p>
+          <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-3">Demo</p>
           <h2
             className="text-[#1B4332]"
             style={{
@@ -179,10 +178,25 @@ export default function Landing() {
               fontWeight: 600,
             }}
           >
-            A rally, fully analysed
+            See it in action
           </h2>
         </motion.div>
-        <SampleAnalysis />
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          className="max-w-4xl mx-auto"
+        >
+          <video
+            src="/demo.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full border border-[#1B4332]/20"
+          />
+        </motion.div>
       </section>
 
       {/* How it works */}
