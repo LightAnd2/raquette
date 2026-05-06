@@ -1,13 +1,14 @@
 """
 TrackNet V2 — high-speed small object tracking for tennis ball.
 
-Architecture: VGG16-style encoder + transposed-conv decoder with skip connections.
-Input:  3 consecutive RGB frames stacked as a 9-channel tensor (H x W x 9)
-Output: single-channel heatmap — Gaussian blob centred on ball, 0 if ball absent
+Architecture matches yastrebksv/TrackNet pretrained weights:
+  - VGG-style encoder (9-channel input = 3 stacked RGB frames)
+  - Bilinear upsampling decoder (no skip connections)
+  - 18 conv blocks (conv1..conv18), each with Conv2d + BN + ReLU
+  - Output: 256-channel feature map → reduced to 1-channel heatmap at inference
 
-Reference: Huang et al. "TrackNet: A Deep Learning Network for Tracking
-High-speed and Tiny Objects in Sports Applications" (2019)
-Weights: https://github.com/TrackNetTeam/TrackNet (free, non-commercial)
+Reference: Huang et al. "TrackNet" (2019)
+Weights: https://github.com/yastrebksv/TrackNet
 """
 
 from __future__ import annotations
@@ -20,74 +21,85 @@ from pathlib import Path
 from typing import Optional
 
 
-# ── Architecture ─────────────────────────────────────────────────────────────
+# ── Architecture ──────────────────────────────────────────────────────────────
 
-def _vgg_block(in_ch: int, out_ch: int, layers: int) -> nn.Sequential:
-    mods = []
-    for i in range(layers):
-        mods += [
-            nn.Conv2d(in_ch if i == 0 else out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
+class _ConvBlock(nn.Module):
+    """Conv2d + ReLU + BatchNorm2d — order matches pretrained weight keys
+    (block.0=Conv, block.1=ReLU has no params, block.2=BN)."""
+    def __init__(self, in_ch: int, out_ch: int):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-        ]
-    return nn.Sequential(*mods)
+            nn.BatchNorm2d(out_ch),
+        )
+
+    def forward(self, x):
+        return self.block(x)
 
 
 class TrackNetV2(nn.Module):
     """
-    Encoder-decoder network for ball heatmap prediction.
-    Accepts a (B, 9, H, W) tensor — three stacked RGB frames.
-    Returns a (B, 1, H, W) float heatmap in [0, 1].
+    Encoder-decoder network matching yastrebksv/TrackNet pretrained weights.
+    Input:  (B, 9, H, W) — three RGB frames stacked along channel dim
+    Output: (B, 1, H, W) heatmap in [0, 1]
     """
 
     def __init__(self):
         super().__init__()
 
-        # Encoder (VGG16-style, adapted for 9-channel input)
-        self.enc1 = _vgg_block(9, 64, 2)
-        self.enc2 = _vgg_block(64, 128, 2)
-        self.enc3 = _vgg_block(128, 256, 3)
-        self.enc4 = _vgg_block(256, 512, 3)
-        self.enc5 = _vgg_block(512, 512, 3)
+        # Encoder
+        self.conv1  = _ConvBlock(9,   64)
+        self.conv2  = _ConvBlock(64,  64)
+        self.conv3  = _ConvBlock(64,  128)
+        self.conv4  = _ConvBlock(128, 128)
+        self.conv5  = _ConvBlock(128, 256)
+        self.conv6  = _ConvBlock(256, 256)
+        self.conv7  = _ConvBlock(256, 256)
+        self.conv8  = _ConvBlock(256, 512)
+        self.conv9  = _ConvBlock(512, 512)
+        self.conv10 = _ConvBlock(512, 512)
+
+        # Decoder
+        self.conv11 = _ConvBlock(512, 256)
+        self.conv12 = _ConvBlock(256, 256)
+        self.conv13 = _ConvBlock(256, 256)
+        self.conv14 = _ConvBlock(256, 128)
+        self.conv15 = _ConvBlock(128, 128)
+        self.conv16 = _ConvBlock(128, 64)
+        self.conv17 = _ConvBlock(64,  64)
+        self.conv18 = _ConvBlock(64,  256)
+
         self.pool = nn.MaxPool2d(2, 2)
 
-        # Decoder with skip connections
-        self.up5 = nn.ConvTranspose2d(512, 512, 2, stride=2)
-        self.dec5 = _vgg_block(1024, 512, 3)
-
-        self.up4 = nn.ConvTranspose2d(512, 256, 2, stride=2)
-        self.dec4 = _vgg_block(768, 256, 3)
-
-        self.up3 = nn.ConvTranspose2d(256, 128, 2, stride=2)
-        self.dec3 = _vgg_block(384, 128, 2)
-
-        self.up2 = nn.ConvTranspose2d(128, 64, 2, stride=2)
-        self.dec2 = _vgg_block(192, 64, 2)
-
-        self.up1 = nn.ConvTranspose2d(64, 64, 2, stride=2)
-        self.dec1 = _vgg_block(128, 64, 2)
-
-        self.head = nn.Sequential(
-            nn.Conv2d(64, 1, 1),
-            nn.Sigmoid(),
-        )
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Encode
-        e1 = self.enc1(x)
-        e2 = self.enc2(self.pool(e1))
-        e3 = self.enc3(self.pool(e2))
-        e4 = self.enc4(self.pool(e3))
-        e5 = self.enc5(self.pool(e4))
+        # Encoder
+        x = self.conv2(self.conv1(x))          # 64 ch
+        x = self.pool(x)
+        x = self.conv4(self.conv3(x))          # 128 ch
+        x = self.pool(x)
+        x = self.conv7(self.conv6(self.conv5(x)))  # 256 ch
+        x = self.pool(x)
+        x = self.conv10(self.conv9(self.conv8(x))) # 512 ch
 
-        # Decode with skip connections
-        d5 = self.dec5(torch.cat([self.up5(self.pool(e5)), e5], dim=1))
-        d4 = self.dec4(torch.cat([self.up4(d5), e4], dim=1))
-        d3 = self.dec3(torch.cat([self.up3(d4), e3], dim=1))
-        d2 = self.dec2(torch.cat([self.up2(d3), e2], dim=1))
-        d1 = self.dec1(torch.cat([self.up1(d2), e1], dim=1))
+        # Decoder (bilinear upsampling — no skip connections)
+        x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+        x = self.conv13(self.conv12(self.conv11(x)))   # 256 ch
 
-        return self.head(d1)
+        x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+        x = self.conv15(self.conv14(x))                # 128 ch
+
+        x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+        x = self.conv17(self.conv16(x))                # 64 ch
+
+        x = self.conv18(x)                             # 256 ch
+
+        # Collapse 256 channels → 1-channel heatmap, min-max normalise to [0,1]
+        heatmap = x.mean(dim=1, keepdim=True)
+        h_min = heatmap.flatten(1).min(dim=1).values[:, None, None, None]
+        h_max = heatmap.flatten(1).max(dim=1).values[:, None, None, None]
+        heatmap = (heatmap - h_min) / (h_max - h_min + 1e-8)
+        return heatmap
 
 
 # ── Wrapper ───────────────────────────────────────────────────────────────────
@@ -97,9 +109,9 @@ class BallTracker:
     High-level wrapper around TrackNetV2.
 
     Usage:
-        tracker = BallTracker.load("models/tracknet.pt")
+        tracker = BallTracker.load("ml/models/weights/tracknet.pt")
         pos = tracker.predict([frame_t_minus_2, frame_t_minus_1, frame_t])
-        # pos is (x, y) in pixel coords, or None if ball not visible
+        # pos → (x, y) in pixel coords, or None if ball not visible
     """
 
     INPUT_H = 288
@@ -116,13 +128,16 @@ class BallTracker:
         model = TrackNetV2()
         p = Path(path)
         if p.exists():
-            state = torch.load(str(p), map_location=device, weights_only=True)
-            # Handle both raw state_dict and checkpoint dicts
-            if "model_state_dict" in state:
+            state = torch.load(str(p), map_location=device, weights_only=False)
+            if isinstance(state, dict) and "model_state_dict" in state:
                 state = state["model_state_dict"]
-            model.load_state_dict(state)
+            try:
+                model.load_state_dict(state, strict=False)
+                print(f"[TrackNet] weights loaded from {path}")
+            except Exception as e:
+                print(f"[TrackNet] could not load weights: {e} — running untrained")
         else:
-            print(f"[TrackNet] weights not found at {path} — running untrained (predictions will be noise)")
+            print(f"[TrackNet] weights not found at {path} — running untrained")
         return cls(model, device)
 
     def predict(self, frames: list) -> Optional[tuple[float, float]]:
@@ -147,10 +162,6 @@ class BallTracker:
         return pos
 
     def predict_with_interpolation(self, frames: list) -> Optional[tuple[float, float]]:
-        """
-        Same as predict() but fills in None positions using linear interpolation
-        over the last 5 frames — handles occlusion and motion blur.
-        """
         pos = self.predict(frames)
         if pos is not None:
             return pos
@@ -165,7 +176,7 @@ class BallTracker:
             resized = cv2.resize(f, (self.INPUT_W, self.INPUT_H))
             rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
             frames.append(rgb)
-        stacked = np.concatenate(frames, axis=2)          # (H, W, 9)
+        stacked = np.concatenate(frames, axis=2)           # (H, W, 9)
         tensor = torch.from_numpy(stacked).permute(2, 0, 1).unsqueeze(0)  # (1, 9, H, W)
         return tensor
 
@@ -175,7 +186,6 @@ class BallTracker:
         if heatmap.max() < self.DETECT_THRESH:
             return None
         y_idx, x_idx = np.unravel_index(np.argmax(heatmap), heatmap.shape)
-        # Scale back to original resolution
         x = float(x_idx) / self.INPUT_W * orig_w
         y = float(y_idx) / self.INPUT_H * orig_h
         return (x, y)
