@@ -177,7 +177,7 @@ export default function Landing() {
           transition={{ delay: 1.2, duration: 0.8 }}
           className="mt-20 flex flex-col items-center gap-2 text-[#888880]"
         >
-          <span className="text-xs font-light tracking-widest uppercase">Sample footage</span>
+          <span className="text-xs font-light tracking-widest uppercase">See it in action</span>
           <ChevronDown size={14} strokeWidth={1} className="animate-bounce" />
         </motion.div>
       </section>
@@ -194,7 +194,7 @@ export default function Landing() {
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
           className="text-center mb-14"
         >
-          <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-3">Sample footage</p>
+          <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-3">Live demo</p>
           <h2
             className="text-[#1B4332]"
             style={{
@@ -203,7 +203,7 @@ export default function Landing() {
               fontWeight: 600,
             }}
           >
-            Try it with this clip
+            A rally, fully analysed
           </h2>
         </motion.div>
         <motion.div
