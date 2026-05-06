@@ -1,0 +1,11 @@
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+aiofiles==24.1.0
+
+# ML pipeline (install separately on Colab/Spaces GPU)
+# torch>=2.0
+# ultralytics>=8.0          # YOLOv8
+# mediapipe>=0.10
+# opencv-python>=4.8
+# numpy>=1.24

@@ -1,0 +1,281 @@
+import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Upload, ChevronDown } from 'lucide-react'
+import SampleAnalysis from '../components/SampleAnalysis'
+
+export default function Landing() {
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState(null)
+  const navigate = useNavigate()
+
+  const handleFile = useCallback(async (file) => {
+    if (!file) return
+    if (!file.type.startsWith('video/')) {
+      setError('Please upload a video file.')
+      return
+    }
+    setError(null)
+    setUploading(true)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (!res.ok) throw new Error('Upload failed')
+      const { job_id } = await res.json()
+      navigate(`/analysis/${job_id}`)
+    } catch (e) {
+      setError('Upload failed — make sure the backend is running.')
+      setUploading(false)
+    }
+  }, [navigate])
+
+  const onDrop = useCallback((e) => {
+    e.preventDefault()
+    setDragging(false)
+    handleFile(e.dataTransfer.files[0])
+  }, [handleFile])
+
+  const onInputChange = (e) => handleFile(e.target.files[0])
+
+  return (
+    <div className="min-h-screen bg-[#FAFAF7] flex flex-col">
+      {/* Nav */}
+      <nav className="flex items-center justify-between px-10 py-6">
+        <span
+          className="text-[#1B4332] text-xl tracking-widest uppercase font-light"
+          style={{ fontFamily: '"DM Sans", system-ui, sans-serif', letterSpacing: '0.3em' }}
+        >
+          Raquette
+        </span>
+        <div className="flex gap-8 text-sm text-[#888880] font-light tracking-wide whitespace-nowrap">
+          <a href="#how" className="hover:text-[#1B4332] transition-colors duration-300">How it works</a>
+          <a href="#sample" className="hover:text-[#1B4332] transition-colors duration-300">Demo</a>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section className="flex flex-col items-center justify-center flex-1 px-6 pt-16 pb-24 text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <h1
+            className="text-[#1B4332] leading-none mb-6"
+            style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontSize: 'clamp(3.5rem, 8vw, 7rem)',
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Raquette
+          </h1>
+          <p
+            className="text-[#888880] font-light mb-16 tracking-wide"
+            style={{ fontFamily: '"DM Sans", system-ui, sans-serif', fontSize: '1.1rem', letterSpacing: '0.08em' }}
+          >
+            Every shot. Every rally. Understood.
+          </p>
+        </motion.div>
+
+        {/* Upload zone */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-xl"
+        >
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={onDrop}
+            className={`
+              flex flex-col items-center gap-4 px-12 py-14 cursor-pointer
+              border transition-all duration-500
+              ${dragging
+                ? 'border-[#1B4332] bg-[#1B4332]/5'
+                : 'border-[#1B4332]/30 hover:border-[#1B4332]/60 hover:bg-[#1B4332]/[0.02]'
+              }
+            `}
+          >
+            <input type="file" accept="video/*" className="hidden" onChange={onInputChange} disabled={uploading} />
+            <AnimatePresence mode="wait">
+              {uploading ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col items-center gap-3"
+                >
+                  <div className="w-5 h-5 border border-[#1B4332] border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-[#1B4332] font-light tracking-widest uppercase">Uploading</span>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="idle"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col items-center gap-3"
+                >
+                  <Upload size={20} strokeWidth={1.25} className="text-[#1B4332]/60" />
+                  <div className="text-center">
+                    <p className="text-sm text-[#1B4332] font-light tracking-widest uppercase mb-1">Upload match footage</p>
+                    <p className="text-xs text-[#888880] font-light">MP4, MOV, AVI — drag or click</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </label>
+
+          {error && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-3 text-xs text-[#C1440E] font-light tracking-wide text-center"
+            >
+              {error}
+            </motion.p>
+          )}
+        </motion.div>
+
+        {/* Scroll cue */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2, duration: 0.8 }}
+          className="mt-20 flex flex-col items-center gap-2 text-[#888880]"
+        >
+          <span className="text-xs font-light tracking-widest uppercase">See it in action</span>
+          <ChevronDown size={14} strokeWidth={1} className="animate-bounce" />
+        </motion.div>
+      </section>
+
+      {/* Divider */}
+      <div className="w-full h-px bg-[#1B4332]/10" />
+
+      {/* Sample analysis demo */}
+      <section id="sample" className="py-24 px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          className="text-center mb-14"
+        >
+          <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-3">Live demo</p>
+          <h2
+            className="text-[#1B4332]"
+            style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontSize: '2rem',
+              fontWeight: 600,
+            }}
+          >
+            A rally, fully analysed
+          </h2>
+        </motion.div>
+        <SampleAnalysis />
+      </section>
+
+      {/* How it works */}
+      <div className="w-full h-px bg-[#1B4332]/10" />
+      <section id="how" className="py-24 px-6 max-w-5xl mx-auto w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          className="text-center mb-16"
+        >
+          <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-3">The pipeline</p>
+          <h2
+            className="text-[#1B4332]"
+            style={{
+              fontFamily: '"Playfair Display", Georgia, serif',
+              fontSize: '2rem',
+              fontWeight: 600,
+            }}
+          >
+            Four models. One pipeline.
+          </h2>
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-[#1B4332]/10">
+          {[
+            {
+              step: '01',
+              title: 'Player Detection',
+              model: 'YOLOv8',
+              body: 'Both players are detected and tracked across every frame, maintaining identity so each shot is attributed correctly.',
+            },
+            {
+              step: '02',
+              title: 'Ball Tracking',
+              model: 'TrackNet',
+              body: 'A deep learning model built for high-speed small object tracking follows the ball at 150mph, predicting through occlusion.',
+            },
+            {
+              step: '03',
+              title: 'Pose Estimation',
+              model: 'MediaPipe',
+              body: '33 body landmarks are extracted at ball contact — shoulder rotation, hip alignment, wrist angle — the full biomechanical signature of each swing.',
+            },
+            {
+              step: '04',
+              title: 'Shot Classification',
+              model: 'Temporal CNN',
+              body: 'A sliding window over pose sequences distinguishes forehand from backhand, serve from volley, slice from smash.',
+            },
+          ].map((item) => (
+            <motion.div
+              key={item.step}
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-[#FAFAF7] p-10"
+            >
+              <div className="flex items-start gap-6">
+                <span
+                  className="text-[#1B4332]/20 shrink-0"
+                  style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '2.5rem', lineHeight: 1 }}
+                >
+                  {item.step}
+                </span>
+                <div>
+                  <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-1">{item.model}</p>
+                  <h3
+                    className="text-[#1B4332] mb-3"
+                    style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.15rem' }}
+                  >
+                    {item.title}
+                  </h3>
+                  <p className="text-sm text-[#888880] font-light leading-relaxed">{item.body}</p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Footer */}
+      <div className="w-full h-px bg-[#1B4332]/10" />
+      <footer className="py-8 px-10 flex items-center justify-between">
+        <span
+          className="text-[#1B4332]/60 text-sm font-light tracking-widest uppercase"
+          style={{ letterSpacing: '0.25em' }}
+        >
+          Raquette
+        </span>
+        <p className="text-xs text-[#888880] font-light">Open source · Zero cost · Built for the love of tennis</p>
+      </footer>
+    </div>
+  )
+}
