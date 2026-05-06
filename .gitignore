@@ -29,5 +29,5 @@ frontend/dist/
 # macOS
 .DS_Store
 
-# Claude memory (local only)
+# Local dev memory
 .claude/
