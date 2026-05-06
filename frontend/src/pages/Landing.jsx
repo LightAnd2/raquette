@@ -41,6 +41,20 @@ export default function Landing() {
 
   const onInputChange = (e) => handleFile(e.target.files[0])
 
+  const useSampleVideo = useCallback(async () => {
+    setError(null)
+    setUploading(true)
+    try {
+      const res = await fetch('/demo.mp4')
+      const blob = await res.blob()
+      const file = new File([blob], 'demo.mp4', { type: 'video/mp4' })
+      await handleFile(file)
+    } catch (e) {
+      setError('Could not load sample video.')
+      setUploading(false)
+    }
+  }, [handleFile])
+
   return (
     <div className="min-h-screen bg-[#FAFAF7] flex flex-col">
       {/* Nav */}
@@ -133,6 +147,17 @@ export default function Landing() {
               )}
             </AnimatePresence>
           </label>
+
+          <div className="mt-4 text-center">
+            <span className="text-xs text-[#888880] font-light">No video? </span>
+            <button
+              onClick={useSampleVideo}
+              disabled={uploading}
+              className="text-xs text-[#1B4332] font-light underline underline-offset-2 hover:text-[#2D6A4F] transition-colors disabled:opacity-40"
+            >
+              Try the sample clip
+            </button>
+          </div>
 
           {error && (
             <motion.p
