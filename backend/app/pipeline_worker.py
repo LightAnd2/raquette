@@ -115,7 +115,7 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
 
         # Contact detection — ball-based if available, else pose-motion-based
         is_contact = _detect_contact(ball, prev_ball, players)
-        if not is_contact and contact_cooldown == 0:
+        if not is_contact and contact_cooldown == 0 and players:
             is_contact = _detect_swing(pose_window)
 
         if is_contact and contact_cooldown == 0 and len(pose_window) >= 4:
@@ -126,7 +126,7 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
 
             shot = {
                 "type":    shot_type,
-                "speed":   round(speed) if round(speed) > 0 else _random_speed(shot_type),
+                "speed":   round(speed) if round(speed) > 0 else 0,
                 "player":  hitter,
                 "time":    round(idx / fps, 2),
                 "court_x": cx,
@@ -171,19 +171,10 @@ def _detect_swing(pose_window: list) -> bool:
         rx = [w[2] for w in wrists]
         l_vel = abs(lx[-1] - lx[0])
         r_vel = abs(rx[-1] - rx[0])
-        return max(l_vel, r_vel) > 0.08   # 8% frame width movement in 4 frames
+        return max(l_vel, r_vel) > 0.15   # 15% frame width movement — only real swings
     except Exception:
         return False
 
-
-def _random_speed(shot_type: str) -> int:
-    import random
-    ranges = {
-        "Serve": (160, 210), "Smash": (140, 180), "Forehand": (90, 140),
-        "Backhand": (80, 130), "Return": (70, 110), "Volley": (60, 95), "Slice": (65, 100),
-    }
-    lo, hi = ranges.get(shot_type, (70, 130))
-    return random.randint(lo, hi)
 
 
 def _detect_contact(ball, prev_ball, players) -> bool:
