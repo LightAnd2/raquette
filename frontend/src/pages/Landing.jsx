@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, ChevronDown } from 'lucide-react'
 import { api } from '../api'
+import SampleAnalysis from '../components/SampleAnalysis'
 
 export default function Landing() {
   const [dragging, setDragging] = useState(false)
@@ -206,22 +207,7 @@ export default function Landing() {
             A rally, fully analysed
           </h2>
         </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-4xl mx-auto"
-        >
-          <video
-            src="/demo.mp4"
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full border border-[#1B4332]/20"
-          />
-        </motion.div>
+        <SampleAnalysis />
       </section>
 
       {/* How it works */}
