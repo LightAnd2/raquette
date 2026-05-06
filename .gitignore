@@ -29,5 +29,8 @@ frontend/dist/
 # macOS
 .DS_Store
 
+# HF Space (separate git repo)
+hf-space/
+
 # Local dev memory
 .claude/
