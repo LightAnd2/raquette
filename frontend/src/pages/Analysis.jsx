@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { api } from '../api'
 
 const SHOT_COLORS = {
   Forehand: '#C8E000',
@@ -25,7 +26,7 @@ export default function Analysis() {
   useEffect(() => {
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`/api/jobs/${jobId}`)
+        const res = await api.job(jobId)
         const data = await res.json()
         setProgress(data.progress ?? 0)
         setStatus(data.status)

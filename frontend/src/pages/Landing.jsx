@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, ChevronDown } from 'lucide-react'
 import SampleAnalysis from '../components/SampleAnalysis'
+import { api } from '../api'
 
 export default function Landing() {
   const [dragging, setDragging] = useState(false)
@@ -23,7 +24,7 @@ export default function Landing() {
     formData.append('file', file)
 
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const res = await api.upload(formData)
       if (!res.ok) throw new Error('Upload failed')
       const { job_id } = await res.json()
       navigate(`/analysis/${job_id}`)

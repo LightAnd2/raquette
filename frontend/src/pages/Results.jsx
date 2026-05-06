@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { api } from '../api'
 import { motion } from 'framer-motion'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import CourtHeatmap from '../components/CourtHeatmap'
@@ -37,7 +38,7 @@ export default function Results() {
   const [activeShot, setActiveShot] = useState(null)
 
   useEffect(() => {
-    fetch(`/api/results/${jobId}`)
+    api.results(jobId)
       .then((r) => r.json())
       .then(setData)
       .catch(() => setData(MOCK_RESULTS))
