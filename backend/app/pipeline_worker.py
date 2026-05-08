@@ -108,7 +108,7 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
     contact_cooldown = 0
 
     idx  = 0
-    SKIP = 6
+    SKIP = 3
 
     try:
         while cap.isOpened():
@@ -126,23 +126,26 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
 
             frame_h, frame_w = frame.shape[:2]
 
-            # 1 · Player detection — filter to centre 80% of frame to exclude spectators
+            # 1 · Player detection
+            # Real players: large box (>15% frame height) AND high confidence (>0.55)
+            # Ball boys/spectators: smaller, lower confidence, or at edges
             players = []
             yolo_results = player_detector(frame, verbose=False, classes=[0])[0]
             for box in yolo_results.boxes:
                 bbox = box.xyxy[0].tolist()
-                cx = (bbox[0] + bbox[2]) / 2
-                cy = (bbox[1] + bbox[3]) / 2
-                # Reject detections in the outer 10% horizontally (spectator areas)
-                if cx < frame_w * 0.10 or cx > frame_w * 0.90:
-                    continue
-                # Reject very small boxes (distant crowd)
+                conf = float(box.conf)
+                box_w = bbox[2] - bbox[0]
                 box_h = bbox[3] - bbox[1]
-                if box_h < frame_h * 0.10:
+                area  = box_w * box_h
+                # Must meet both size and confidence thresholds
+                if box_h < frame_h * 0.15:
                     continue
-                players.append({"bbox": bbox, "conf": float(box.conf)})
-            players.sort(key=lambda p: p["conf"], reverse=True)
-            players = players[:2]   # at most 2 players
+                if conf < 0.55:
+                    continue
+                players.append({"bbox": bbox, "conf": conf, "area": area})
+            # Keep 2 largest — players always dominate the frame
+            players.sort(key=lambda p: p["area"], reverse=True)
+            players = players[:2]
 
             # 2 · Ball tracking
             ball = None
