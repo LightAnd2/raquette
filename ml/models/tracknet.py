@@ -159,6 +159,8 @@ class BallTracker:
         heatmap_np = heatmap.squeeze().cpu().numpy()
         pos = self._heatmap_to_coords(heatmap_np, orig_h, orig_w)
         self._history.append(pos)
+        if len(self._history) > 30:   # keep only recent history, prevent memory leak
+            self._history = self._history[-30:]
         return pos
 
     def predict_with_interpolation(self, frames: list) -> Optional[tuple[float, float]]:

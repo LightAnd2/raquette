@@ -1,8 +1,8 @@
 """
 pipeline_worker.py — runs the full ML pipeline on a video file.
 
-Called from main.py via asyncio.to_thread() so it doesn't block the event loop.
-All heavy imports are deferred so the API starts instantly even without GPU packages.
+Called from app.py via asyncio.to_thread() so it doesn't block the event loop.
+Heavy imports are deferred so the API starts instantly even without GPU packages.
 """
 
 from __future__ import annotations
@@ -22,27 +22,22 @@ SHOT_CLASSIFIER_PATH = MODEL_DIR / "shot_classifier.pt"
 TRACKNET_PATH        = MODEL_DIR / "tracknet.pt"
 YOLO_PATH            = MODEL_DIR / "player_detector.pt"   # falls back to yolov8n.pt
 
-# ── Global model cache (loaded once, reused across all jobs) ──────────────────
+# ── Global model cache (stateless models only — pose_est is per-job) ──────────
 _models: dict = {}
 
-def _get_models():
-    """Load models once and cache them globally."""
+def _get_models() -> dict:
+    """Load heavy stateless models once and cache them globally."""
     if _models:
         return _models
     print("[pipeline] loading models into cache...")
     from ultralytics import YOLO
     from ml.models.tracknet import BallTracker
     from ml.models.shot_classifier import ShotClassifier
-    import mediapipe as mp
 
     yolo_weights = str(YOLO_PATH) if YOLO_PATH.exists() else "yolov8n.pt"
     _models["yolo"]       = YOLO(yolo_weights)
     _models["tracker"]    = BallTracker.load(str(TRACKNET_PATH))
     _models["classifier"] = ShotClassifier.load(str(SHOT_CLASSIFIER_PATH))
-    _models["pose"]       = mp.solutions.pose.Pose(
-        static_image_mode=False, model_complexity=0,
-        min_detection_confidence=0.5, min_tracking_confidence=0.5,
-    )
     print("[pipeline] all models ready")
     return _models
 
@@ -74,107 +69,136 @@ def run_pipeline(
 
 def _run_real_pipeline(video_path: str, on_progress) -> dict:
     import cv2
+    import mediapipe as mp
     from ml.utils.video import draw_overlay, frame_to_jpeg_b64, video_metadata
 
     on_progress(0, [], None)
 
-    meta = video_metadata(video_path)
-    total = meta["total_frames"]
-    fps   = meta["fps"]
+    if not Path(video_path).exists():
+        raise FileNotFoundError(f"Video not found: {video_path}")
 
-    on_progress(1, [], None)   # loading / fetching cached models
+    meta = video_metadata(video_path)
+    total = max(meta["total_frames"], 1)
+    fps   = meta["fps"] or 30.0
+
+    on_progress(1, [], None)
     models = _get_models()
     player_detector = models["yolo"]
     ball_tracker    = models["tracker"]
     shot_classifier = models["classifier"]
-    pose_est        = models["pose"]
-    on_progress(2, [], None)   # models ready
+    # MediaPipe Pose is stateful (timestamps) — must be fresh per job
+    pose_est = mp.solutions.pose.Pose(
+        static_image_mode=False, model_complexity=0,
+        min_detection_confidence=0.5, min_tracking_confidence=0.5,
+    )
+    on_progress(2, [], None)
+
+    # Reset ball tracker history for this job
+    ball_tracker._history.clear()
 
     cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        pose_est.close()
+        raise RuntimeError(f"Could not open video: {video_path}")
+
     shots: list[dict] = []
     frame_buffer: list = []
     pose_window: list  = []
     prev_ball: Optional[tuple] = None
     contact_cooldown = 0
 
-    idx = 0
+    idx  = 0
     SKIP = 6
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    try:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        frame_buffer.append(frame)
-        if len(frame_buffer) > 3:
-            frame_buffer.pop(0)
+            frame_buffer.append(frame)
+            if len(frame_buffer) > 3:
+                frame_buffer.pop(0)
 
-        if idx % SKIP != 0:
+            if idx % SKIP != 0:
+                idx += 1
+                continue
+
+            frame_h, frame_w = frame.shape[:2]
+
+            # 1 · Player detection — filter to centre 80% of frame to exclude spectators
+            players = []
+            yolo_results = player_detector(frame, verbose=False, classes=[0])[0]
+            for box in yolo_results.boxes:
+                bbox = box.xyxy[0].tolist()
+                cx = (bbox[0] + bbox[2]) / 2
+                cy = (bbox[1] + bbox[3]) / 2
+                # Reject detections in the outer 10% horizontally (spectator areas)
+                if cx < frame_w * 0.10 or cx > frame_w * 0.90:
+                    continue
+                # Reject very small boxes (distant crowd)
+                box_h = bbox[3] - bbox[1]
+                if box_h < frame_h * 0.10:
+                    continue
+                players.append({"bbox": bbox, "conf": float(box.conf)})
+            players.sort(key=lambda p: p["conf"], reverse=True)
+            players = players[:2]   # at most 2 players
+
+            # 2 · Ball tracking
+            ball = None
+            trajectory = [s.get("_ball") for s in shots[-10:] if s.get("_ball")]
+            if len(frame_buffer) == 3:
+                ball = ball_tracker.predict_with_interpolation(frame_buffer)
+
+            # 3 · Pose extraction (both players)
+            contact_cooldown = max(0, contact_cooldown - 1)
+            lm_p1 = _get_pose(pose_est, frame, players[:1])
+            lm_p2 = _get_pose(pose_est, frame, players[1:2])
+            if lm_p1 or lm_p2:
+                from ml.models.shot_classifier import extract_dual_player_features
+                feat = extract_dual_player_features(lm_p1, lm_p2)
+                pose_window.append(feat)
+
+            # 4 · Contact detection
+            is_contact = _detect_contact(ball, prev_ball, players)
+            if not is_contact and contact_cooldown == 0 and players:
+                is_contact = _detect_swing(pose_window)
+
+            if is_contact and contact_cooldown == 0 and len(pose_window) >= 4:
+                shot_type = shot_classifier.predict(pose_window[-16:])
+                speed     = _estimate_speed(ball, prev_ball, fps, SKIP)
+                hitter    = _identify_hitter(ball, players)
+                cx, cy    = _to_court_coords(ball, frame.shape) if ball else (0.5, 0.5)
+
+                shots.append({
+                    "type":    shot_type,
+                    "speed":   round(speed),
+                    "player":  hitter,
+                    "time":    round(idx / fps, 2),
+                    "court_x": cx,
+                    "court_y": cy,
+                    "_ball":   ball,
+                })
+                pose_window      = pose_window[-4:]
+                contact_cooldown = 20
+
+            prev_ball = ball
+
+            # 5 · Stream progress
+            pct = max(3, round(idx / total * 100))
+            frame_b64 = None
+            if idx % (SKIP * 5) == 0:
+                annotated = draw_overlay(frame, players, ball, trajectory,
+                                         shots[-1]["type"] if shots else None)
+                frame_b64 = frame_to_jpeg_b64(annotated, quality=55)
+
+            public_shots = [{k: v for k, v in s.items() if not k.startswith("_")} for s in shots]
+            on_progress(pct, public_shots, frame_b64)
             idx += 1
-            continue
 
-        # 1 · Player detection
-        players = []
-        yolo_results = player_detector(frame, verbose=False, classes=[0])[0]
-        for box in yolo_results.boxes:
-            players.append({"bbox": box.xyxy[0].tolist(), "conf": float(box.conf)})
-        players.sort(key=lambda p: p["conf"], reverse=True)
-
-        # 2 · Ball tracking
-        ball = None
-        trajectory = [s.get("_ball") for s in shots[-10:] if s.get("_ball")]
-        if len(frame_buffer) == 3:
-            ball = ball_tracker.predict_with_interpolation(frame_buffer)
-
-        # 3 · Pose extraction every processed frame (both players)
-        contact_cooldown = max(0, contact_cooldown - 1)
-        lm_p1 = _get_pose(pose_est, frame, players[:1])   # closest / highest-conf player
-        lm_p2 = _get_pose(pose_est, frame, players[1:2])  # second player (may be None)
-        if lm_p1 or lm_p2:
-            from ml.models.shot_classifier import extract_dual_player_features
-            feat = extract_dual_player_features(lm_p1, lm_p2)
-            pose_window.append(feat)
-
-        # Contact detection — ball-based if available, else pose-motion-based
-        is_contact = _detect_contact(ball, prev_ball, players)
-        if not is_contact and contact_cooldown == 0 and players:
-            is_contact = _detect_swing(pose_window)
-
-        if is_contact and contact_cooldown == 0 and len(pose_window) >= 4:
-            shot_type = shot_classifier.predict(pose_window[-16:])
-            speed     = _estimate_speed(ball, prev_ball, fps)
-            hitter    = _identify_hitter(ball, players)
-            cx, cy    = _to_court_coords(ball, frame.shape) if ball else (0.5, 0.5)
-
-            shot = {
-                "type":    shot_type,
-                "speed":   round(speed) if round(speed) > 0 else 0,
-                "player":  hitter,
-                "time":    round(idx / fps, 2),
-                "court_x": cx,
-                "court_y": cy,
-                "_ball":   ball,
-            }
-            shots.append(shot)
-            pose_window = pose_window[-4:]
-            contact_cooldown = 20   # ignore next 20 frames
-
-        prev_ball = ball
-
-        # 4 · Build annotated frame for frontend
-        pct = max(3, round(idx / total * 100))   # never report below 3 once loop starts
-        frame_b64 = None
-        if idx % (SKIP * 5) == 0:   # stream every 5th processed frame (more responsive)
-            annotated = draw_overlay(frame, players, ball, trajectory,
-                                     shots[-1]["type"] if shots else None)
-            frame_b64 = frame_to_jpeg_b64(annotated, quality=55)
-
-        public_shots = [{k: v for k, v in s.items() if not k.startswith("_")} for s in shots]
-        on_progress(pct, public_shots, frame_b64)
-        idx += 1
-
-    cap.release()
-    # pose_est is cached globally — don't close it
+    finally:
+        cap.release()
+        pose_est.close()
 
     public_shots = [{k: v for k, v in s.items() if not k.startswith("_")} for s in shots]
     return _build_summary(public_shots)
@@ -188,33 +212,26 @@ def _detect_swing(pose_window: list) -> bool:
         return False
     try:
         import numpy as np
-        # pose_window items are either numpy feature vectors (264,) or raw landmark lists
         recent = pose_window[-4:]
         if isinstance(recent[0], np.ndarray):
-            # Dual-player flat vector: player1 landmarks at indices 0..131
-            # MediaPipe wrist indices 15 & 16 → each landmark is 4 values (x,y,z,vis)
-            # wrist_left_x  = index 15*4 = 60
-            # wrist_right_x = index 16*4 = 64
-            lx = [v[60] for v in recent]
-            rx = [v[64] for v in recent]
+            # Dual-player flat vector — wrist indices: left=60, right=64
+            lx = [float(v[60]) for v in recent]
+            rx = [float(v[64]) for v in recent]
         else:
             lx = [p[15][0] for p in recent]
             rx = [p[16][0] for p in recent]
         l_vel = abs(lx[-1] - lx[0])
         r_vel = abs(rx[-1] - rx[0])
-        return max(l_vel, r_vel) > 0.15   # 15% frame width movement — only real swings
+        return max(l_vel, r_vel) > 0.15
     except Exception:
         return False
-
 
 
 def _detect_contact(ball, prev_ball, players) -> bool:
     if ball is None or prev_ball is None:
         return False
-    dy_prev = prev_ball[1] - ball[1]
-    # Direction reversal in Y = bounce or racquet contact
-    # Also check proximity to a player
-    if abs(dy_prev) < 3:
+    dy = prev_ball[1] - ball[1]
+    if abs(dy) < 3:
         return False
     for p in players[:2]:
         bbox = p["bbox"]
@@ -228,13 +245,17 @@ def _detect_contact(ball, prev_ball, players) -> bool:
 
 def _get_pose(pose_est, frame, players):
     import cv2
-    import mediapipe as mp
-
     if not players:
         return None
-    # Crop to the tallest detected player
     bbox = players[0]["bbox"]
-    x1, y1, x2, y2 = (max(0, int(v)) for v in bbox)
+    h, w = frame.shape[:2]
+    # 20% padding around bbox for better pose detection
+    bw = bbox[2] - bbox[0]
+    bh = bbox[3] - bbox[1]
+    x1 = max(0, int(bbox[0] - bw * 0.1))
+    y1 = max(0, int(bbox[1] - bh * 0.1))
+    x2 = min(w,  int(bbox[2] + bw * 0.1))
+    y2 = min(h,  int(bbox[3] + bh * 0.1))
     crop = frame[y1:y2, x1:x2]
     if crop.size == 0:
         return None
@@ -245,14 +266,16 @@ def _get_pose(pose_est, frame, players):
     return None
 
 
-def _estimate_speed(ball, prev_ball, fps) -> float:
+def _estimate_speed(ball, prev_ball, fps: float, skip: int) -> float:
     if ball is None or prev_ball is None:
         return 0.0
     dx = ball[0] - prev_ball[0]
     dy = ball[1] - prev_ball[1]
-    pixel_dist = (dx**2 + dy**2) ** 0.5
-    meters_per_pixel = 10.97 / 400
-    return pixel_dist * meters_per_pixel * fps * 3.6
+    pixel_dist = (dx ** 2 + dy ** 2) ** 0.5
+    meters_per_pixel = 10.97 / 400   # court width ~10.97m, assumed ~400px in frame
+    effective_fps = fps / skip        # one measurement per SKIP frames
+    speed_kmh = pixel_dist * meters_per_pixel * effective_fps * 3.6
+    return min(speed_kmh, 250.0)     # world record serve is 263 km/h
 
 
 def _identify_hitter(ball, players) -> str:
@@ -275,7 +298,7 @@ def _to_court_coords(ball, img_shape) -> tuple[float, float]:
 
 
 def _build_summary(shots: list) -> dict:
-    speeds = [s["speed"] for s in shots] or [0]
+    speeds = [s["speed"] for s in shots if s["speed"] > 0] or [0]
     p1 = sum(1 for s in shots if s["player"] == "P1")
     return {
         "shots":        shots,
@@ -289,7 +312,8 @@ def _build_summary(shots: list) -> dict:
 # ── Simulation fallback (no ML packages installed) ───────────────────────────
 
 def _run_simulated_pipeline(video_path: str, on_progress) -> dict:
-    import time, random
+    import time
+    import random
 
     SHOT_TYPES = ["Serve", "Return", "Forehand", "Backhand", "Volley", "Smash", "Slice"]
     shots: list[dict] = []

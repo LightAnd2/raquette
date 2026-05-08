@@ -193,8 +193,9 @@ class ShotClassifier:
 
         # Pad / truncate to 16 frames
         target_len = 16
+        zero = np.zeros(self.input_size, dtype=np.float32)
         while len(features) < target_len:
-            features.append(features[-1] if features else np.zeros(self.input_size, dtype=np.float32))
+            features.append(features[-1].copy() if features else zero.copy())
         features = features[:target_len]
 
         tensor = torch.tensor(np.array(features), dtype=torch.float32).unsqueeze(0).to(self.device)
