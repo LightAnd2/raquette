@@ -11,6 +11,7 @@ const SHOT_COLORS = {
   Smash: '#1B4332',
   Slice: '#888880',
   Return: '#2D6A4F',
+  Tweener: '#C8E000',
 }
 
 export default function Analysis() {
@@ -25,7 +26,7 @@ export default function Analysis() {
 
   // Keep HF Space alive — ping every 25s so it doesn't sleep mid-job
   useEffect(() => {
-    const ping = setInterval(() => api.job('ping').catch(() => {}), 25000)
+    const ping = setInterval(() => fetch((import.meta.env.VITE_API_URL ?? '') + '/').catch(() => {}), 25000)
     return () => clearInterval(ping)
   }, [])
 
