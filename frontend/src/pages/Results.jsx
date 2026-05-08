@@ -3,38 +3,41 @@ import { useParams } from 'react-router-dom'
 import { api } from '../api'
 import { motion } from 'framer-motion'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import CourtHeatmap from '../components/CourtHeatmap'
 import RallyTimeline from '../components/RallyTimeline'
 
 const COLORS = {
   Forehand: '#C8E000',
   Backhand: '#C1440E',
-  Serve: '#1B4332',
-  Volley: '#2D6A4F',
-  Smash: '#888880',
-  Slice: '#A3B18A',
-  Return: '#2D6A4F',
+  Serve:    '#1B4332',
+  Volley:   '#2D6A4F',
+  Smash:    '#888880',
+  Slice:    '#A3B18A',
+  Return:   '#2D6A4F',
+  Tweener:  '#C8E000',
 }
 
 const MOCK_RESULTS = {
   shots: [
-    { type: 'Serve', speed: 182, player: 'P1', time: 0.5, court_x: 0.72, court_y: 0.15 },
-    { type: 'Return', speed: 94, player: 'P2', time: 2.1, court_x: 0.28, court_y: 0.75 },
-    { type: 'Forehand', speed: 112, player: 'P1', time: 3.4, court_x: 0.65, court_y: 0.4 },
-    { type: 'Backhand', speed: 87, player: 'P2', time: 4.8, court_x: 0.35, court_y: 0.6 },
-    { type: 'Forehand', speed: 128, player: 'P1', time: 6.0, court_x: 0.7, court_y: 0.3 },
-    { type: 'Volley', speed: 71, player: 'P2', time: 7.2, court_x: 0.42, court_y: 0.5 },
-    { type: 'Smash', speed: 156, player: 'P1', time: 8.1, court_x: 0.55, court_y: 0.25 },
+    { type: 'Serve',    player_name: 'Federer', timestamp: 0.5 },
+    { type: 'Return',   player_name: 'Nadal',   timestamp: 2.1 },
+    { type: 'Forehand', player_name: 'Federer', timestamp: 3.4 },
+    { type: 'Backhand', player_name: 'Nadal',   timestamp: 4.8 },
+    { type: 'Forehand', player_name: 'Federer', timestamp: 6.0 },
+    { type: 'Volley',   player_name: 'Nadal',   timestamp: 7.2 },
+    { type: 'Smash',    player_name: 'Federer', timestamp: 8.1 },
   ],
   rally_length: 7,
-  winner: 'P1',
-  avg_speed: 118,
-  max_speed: 182,
+}
+
+function formatTime(t) {
+  const m = Math.floor(t / 60)
+  const s = (t % 60).toFixed(1).padStart(4, '0')
+  return `${m}:${s}`
 }
 
 export default function Results() {
   const { jobId } = useParams()
-  const [data, setData] = useState(null)
+  const [data, setData]           = useState(null)
   const [activeShot, setActiveShot] = useState(null)
 
   useEffect(() => {
@@ -48,6 +51,11 @@ export default function Results() {
 
   const shotTally = results.shots.reduce((acc, s) => {
     acc[s.type] = (acc[s.type] ?? 0) + 1
+    return acc
+  }, {})
+
+  const playerTally = results.shots.reduce((acc, s) => {
+    acc[s.player_name] = (acc[s.player_name] ?? 0) + 1
     return acc
   }, {})
 
@@ -90,10 +98,11 @@ export default function Results() {
               fontWeight: 600,
             }}
           >
-            Rally Report
+            Shot Report
           </h1>
           <p className="text-sm text-[#888880] font-light tracking-wide">
-            {results.rally_length} shots · {results.avg_speed} km/h average · Won by {results.winner}
+            {results.rally_length} shots identified
+            {Object.keys(playerTally).length > 0 && ` · ${Object.keys(playerTally).join(' vs ')}`}
           </p>
         </motion.div>
 
@@ -102,30 +111,23 @@ export default function Results() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[#1B4332]/10"
+          className="grid grid-cols-2 gap-px bg-[#1B4332]/10"
         >
-          {[
-            { label: 'Rally length', value: `${results.rally_length} shots` },
-            { label: 'Avg ball speed', value: `${results.avg_speed} km/h`, highlight: true },
-            { label: 'Peak speed', value: `${results.max_speed} km/h` },
-            { label: 'Winner', value: results.winner },
-          ].map((card) => (
-            <div key={card.label} className="bg-[#FAFAF7] p-8 text-center">
-              <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-2">{card.label}</p>
-              <p
-                className="text-2xl font-light"
-                style={{
-                  fontFamily: '"Playfair Display", Georgia, serif',
-                  color: card.highlight ? '#C8E000' : '#1B4332',
-                }}
-              >
-                {card.value}
-              </p>
-            </div>
-          ))}
+          <div className="bg-[#FAFAF7] p-8 text-center">
+            <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-2">Total shots</p>
+            <p className="text-2xl font-light text-[#1B4332]" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
+              {results.rally_length}
+            </p>
+          </div>
+          <div className="bg-[#FAFAF7] p-8 text-center">
+            <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-2">Players</p>
+            <p className="text-2xl font-light text-[#1B4332]" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>
+              {Object.keys(playerTally).join(', ') || '—'}
+            </p>
+          </div>
         </motion.div>
 
-        {/* Shot distribution + heatmap */}
+        {/* Shot distribution + player breakdown */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -136,36 +138,21 @@ export default function Results() {
           {/* Donut chart */}
           <div className="bg-[#FAFAF7] p-10">
             <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-1">Shot distribution</p>
-            <h2
-              className="text-[#1B4332] mb-8"
-              style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.5rem' }}
-            >
+            <h2 className="text-[#1B4332] mb-8" style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.5rem' }}>
               By type
             </h2>
             <div className="flex items-center gap-8">
               <ResponsiveContainer width={160} height={160}>
                 <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={48}
-                    outerRadius={72}
-                    strokeWidth={0}
-                    dataKey="value"
-                  >
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={48} outerRadius={72} strokeWidth={0} dataKey="value">
                     {pieData.map((entry) => (
                       <Cell key={entry.name} fill={COLORS[entry.name] ?? '#888880'} />
                     ))}
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      background: '#FAFAF7',
-                      border: '1px solid rgba(27,67,50,0.2)',
-                      borderRadius: 0,
-                      fontSize: 11,
-                      fontFamily: '"DM Sans", system-ui',
-                      color: '#1B4332',
+                      background: '#FAFAF7', border: '1px solid rgba(27,67,50,0.2)',
+                      borderRadius: 0, fontSize: 11, fontFamily: '"DM Sans", system-ui', color: '#1B4332',
                     }}
                   />
                 </PieChart>
@@ -182,16 +169,33 @@ export default function Results() {
             </div>
           </div>
 
-          {/* Court heatmap */}
+          {/* Player breakdown */}
           <div className="bg-[#FAFAF7] p-10">
-            <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-1">Shot placement</p>
-            <h2
-              className="text-[#1B4332] mb-8"
-              style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.5rem' }}
-            >
-              Court heatmap
+            <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-1">Player breakdown</p>
+            <h2 className="text-[#1B4332] mb-8" style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.5rem' }}>
+              By player
             </h2>
-            <CourtHeatmap shots={results.shots} />
+            <div className="space-y-4">
+              {Object.entries(playerTally).map(([name, count]) => {
+                const pct = Math.round((count / results.rally_length) * 100)
+                return (
+                  <div key={name}>
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-xs text-[#888880] font-light">{name}</span>
+                      <span className="text-xs text-[#1B4332] font-light tabular-nums">{count} shots</span>
+                    </div>
+                    <div className="w-full h-px bg-[#1B4332]/10 relative">
+                      <motion.div
+                        className="absolute top-1/2 left-0 -translate-y-1/2 h-0.5 bg-[#1B4332]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </motion.div>
 
@@ -204,10 +208,7 @@ export default function Results() {
           className="bg-[#FAFAF7] border border-[#1B4332]/10 p-10"
         >
           <p className="text-xs text-[#888880] font-light tracking-widest uppercase mb-1">Shot by shot</p>
-          <h2
-            className="text-[#1B4332] mb-8"
-            style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.5rem' }}
-          >
+          <h2 className="text-[#1B4332] mb-8" style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.5rem' }}>
             Rally timeline
           </h2>
           <RallyTimeline shots={results.shots} activeShot={activeShot} onSelect={setActiveShot} />
