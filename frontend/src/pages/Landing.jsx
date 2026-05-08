@@ -132,19 +132,43 @@ export default function Landing() {
           </div>
 
           {/* Player name inputs */}
-          <div className={`grid gap-3 mb-6 ${nPlayers === 4 ? 'grid-cols-2' : 'grid-cols-2'}`}>
-            {Array.from({ length: nPlayers }).map((_, i) => (
-              <input
-                key={i}
-                type="text"
-                maxLength={20}
-                placeholder={`Player ${i + 1}`}
-                value={playerNames[i]}
-                onChange={(e) => setName(i, e.target.value)}
-                className="bg-transparent border-b border-[#1B4332]/20 py-2 px-0 text-sm text-[#1B4332] font-light placeholder-[#888880]/50 focus:outline-none focus:border-[#1B4332]/60 transition-colors"
-              />
-            ))}
-          </div>
+          {mode === 'doubles' ? (
+            <div className="grid grid-cols-2 gap-px mb-6 bg-[#1B4332]/10">
+              {[0, 1].map((team) => (
+                <div key={team} className="bg-[#FAFAF7] p-4 space-y-3">
+                  <p className="text-[9px] text-[#888880] font-light tracking-widest uppercase">Team {team + 1}</p>
+                  {[0, 1].map((offset) => {
+                    const i = team * 2 + offset
+                    return (
+                      <input
+                        key={i}
+                        type="text"
+                        maxLength={20}
+                        placeholder={`Player ${i + 1}`}
+                        value={playerNames[i]}
+                        onChange={(e) => setName(i, e.target.value)}
+                        className="w-full bg-transparent border-b border-[#1B4332]/20 py-1.5 px-0 text-sm text-[#1B4332] font-light placeholder-[#888880]/50 focus:outline-none focus:border-[#1B4332]/60 transition-colors"
+                      />
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {[0, 1].map((i) => (
+                <input
+                  key={i}
+                  type="text"
+                  maxLength={20}
+                  placeholder={`Player ${i + 1}`}
+                  value={playerNames[i]}
+                  onChange={(e) => setName(i, e.target.value)}
+                  className="bg-transparent border-b border-[#1B4332]/20 py-2 px-0 text-sm text-[#1B4332] font-light placeholder-[#888880]/50 focus:outline-none focus:border-[#1B4332]/60 transition-colors"
+                />
+              ))}
+            </div>
+          )}
 
           {/* Upload zone */}
           <label

@@ -29,6 +29,48 @@ const MOCK_RESULTS = {
   rally_length: 7,
 }
 
+function PlayerBreakdown({ playerTally, total }) {
+  const players = Object.entries(playerTally)
+  // If 4 players, group into 2 teams of 2
+  const isDoubles = players.length === 4
+  const teams = isDoubles
+    ? [players.slice(0, 2), players.slice(2, 4)]
+    : [players]
+
+  return (
+    <div className={`grid gap-6 ${isDoubles ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      {teams.map((team, ti) => (
+        <div key={ti}>
+          {isDoubles && (
+            <p className="text-[9px] text-[#888880] font-light tracking-widest uppercase mb-3">Team {ti + 1}</p>
+          )}
+          <div className="space-y-4">
+            {team.map(([name, count]) => {
+              const pct = Math.round((count / total) * 100)
+              return (
+                <div key={name}>
+                  <div className="flex items-baseline justify-between mb-1.5">
+                    <span className="text-xs text-[#888880] font-light">{name}</span>
+                    <span className="text-xs text-[#1B4332] font-light tabular-nums">{count} shots</span>
+                  </div>
+                  <div className="w-full h-px bg-[#1B4332]/10 relative">
+                    <motion.div
+                      className="absolute top-1/2 left-0 -translate-y-1/2 h-0.5 bg-[#1B4332]"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut' }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function formatTime(t) {
   const m = Math.floor(t / 60)
   const s = (t % 60).toFixed(1).padStart(4, '0')
@@ -175,27 +217,7 @@ export default function Results() {
             <h2 className="text-[#1B4332] mb-8" style={{ fontFamily: '"Playfair Display", Georgia, serif', fontSize: '1.5rem' }}>
               By player
             </h2>
-            <div className="space-y-4">
-              {Object.entries(playerTally).map(([name, count]) => {
-                const pct = Math.round((count / results.rally_length) * 100)
-                return (
-                  <div key={name}>
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-xs text-[#888880] font-light">{name}</span>
-                      <span className="text-xs text-[#1B4332] font-light tabular-nums">{count} shots</span>
-                    </div>
-                    <div className="w-full h-px bg-[#1B4332]/10 relative">
-                      <motion.div
-                        className="absolute top-1/2 left-0 -translate-y-1/2 h-0.5 bg-[#1B4332]"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <PlayerBreakdown playerTally={playerTally} total={results.rally_length} />
           </div>
         </motion.div>
 
