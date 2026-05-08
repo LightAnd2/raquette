@@ -55,15 +55,20 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
     from ml.models.shot_classifier import ShotClassifier
     from ml.utils.video import draw_overlay, frame_to_jpeg_b64, video_metadata
 
+    # Signal that we've started (models not yet loaded)
+    on_progress(0, [], None)
+
     meta = video_metadata(video_path)
     total = meta["total_frames"]
     fps   = meta["fps"]
 
     # Load models (weights auto-download for YOLO; tracknet/classifier need training)
-    yolo_weights = str(YOLO_PATH) if YOLO_PATH.exists() else "yolov8m.pt"
+    on_progress(1, [], None)   # loading models…
+    yolo_weights = str(YOLO_PATH) if YOLO_PATH.exists() else "yolov8n.pt"  # nano = faster on CPU
     player_detector = YOLO(yolo_weights)
     ball_tracker    = BallTracker.load(str(TRACKNET_PATH))
     shot_classifier = ShotClassifier.load(str(SHOT_CLASSIFIER_PATH))
+    on_progress(2, [], None)   # models ready
 
     cap = cv2.VideoCapture(video_path)
     shots: list[dict] = []
@@ -73,11 +78,11 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
     contact_cooldown = 0      # frames since last shot (avoid double-counting)
 
     idx = 0
-    SKIP = 4   # process every 4th frame for speed
+    SKIP = 6   # process every 6th frame — faster on CPU, still ~5fps at 30fps source
 
     import mediapipe as mp
     pose_est = mp.solutions.pose.Pose(
-        static_image_mode=False, model_complexity=1,
+        static_image_mode=False, model_complexity=0,  # complexity=0 is ~3x faster on CPU
         min_detection_confidence=0.5, min_tracking_confidence=0.5,
     )
 
@@ -107,11 +112,14 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
         if len(frame_buffer) == 3:
             ball = ball_tracker.predict_with_interpolation(frame_buffer)
 
-        # 3 · Pose extraction every processed frame
+        # 3 · Pose extraction every processed frame (both players)
         contact_cooldown = max(0, contact_cooldown - 1)
-        landmarks = _get_pose(pose_est, frame, players)
-        if landmarks:
-            pose_window.append(landmarks)
+        lm_p1 = _get_pose(pose_est, frame, players[:1])   # closest / highest-conf player
+        lm_p2 = _get_pose(pose_est, frame, players[1:2])  # second player (may be None)
+        if lm_p1 or lm_p2:
+            from ml.models.shot_classifier import extract_dual_player_features
+            feat = extract_dual_player_features(lm_p1, lm_p2)
+            pose_window.append(feat)
 
         # Contact detection — ball-based if available, else pose-motion-based
         is_contact = _detect_contact(ball, prev_ball, players)
@@ -140,12 +148,12 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
         prev_ball = ball
 
         # 4 · Build annotated frame for frontend
-        pct = round(idx / total * 100)
+        pct = max(3, round(idx / total * 100))   # never report below 3 once loop starts
         frame_b64 = None
-        if idx % (SKIP * 10) == 0:   # stream every 20th processed frame
+        if idx % (SKIP * 5) == 0:   # stream every 5th processed frame (more responsive)
             annotated = draw_overlay(frame, players, ball, trajectory,
                                      shots[-1]["type"] if shots else None)
-            frame_b64 = frame_to_jpeg_b64(annotated, quality=60)
+            frame_b64 = frame_to_jpeg_b64(annotated, quality=55)
 
         public_shots = [{k: v for k, v in s.items() if not k.startswith("_")} for s in shots]
         on_progress(pct, public_shots, frame_b64)
@@ -164,11 +172,20 @@ def _detect_swing(pose_window: list) -> bool:
     """Detect a swing from wrist velocity in the pose sequence."""
     if len(pose_window) < 4:
         return False
-    # MediaPipe wrist landmarks: 15=left, 16=right
     try:
-        wrists = [(p[15][0], p[15][1], p[16][0], p[16][1]) for p in pose_window[-4:]]
-        lx = [w[0] for w in wrists]
-        rx = [w[2] for w in wrists]
+        import numpy as np
+        # pose_window items are either numpy feature vectors (264,) or raw landmark lists
+        recent = pose_window[-4:]
+        if isinstance(recent[0], np.ndarray):
+            # Dual-player flat vector: player1 landmarks at indices 0..131
+            # MediaPipe wrist indices 15 & 16 → each landmark is 4 values (x,y,z,vis)
+            # wrist_left_x  = index 15*4 = 60
+            # wrist_right_x = index 16*4 = 64
+            lx = [v[60] for v in recent]
+            rx = [v[64] for v in recent]
+        else:
+            lx = [p[15][0] for p in recent]
+            rx = [p[16][0] for p in recent]
         l_vel = abs(lx[-1] - lx[0])
         r_vel = abs(rx[-1] - rx[0])
         return max(l_vel, r_vel) > 0.15   # 15% frame width movement — only real swings
