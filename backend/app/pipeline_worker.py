@@ -20,7 +20,31 @@ MODEL_DIR = Path(__file__).parent.parent.parent / "ml" / "models" / "weights"
 
 SHOT_CLASSIFIER_PATH = MODEL_DIR / "shot_classifier.pt"
 TRACKNET_PATH        = MODEL_DIR / "tracknet.pt"
-YOLO_PATH            = MODEL_DIR / "player_detector.pt"   # falls back to yolov8m.pt
+YOLO_PATH            = MODEL_DIR / "player_detector.pt"   # falls back to yolov8n.pt
+
+# ── Global model cache (loaded once, reused across all jobs) ──────────────────
+_models: dict = {}
+
+def _get_models():
+    """Load models once and cache them globally."""
+    if _models:
+        return _models
+    print("[pipeline] loading models into cache...")
+    from ultralytics import YOLO
+    from ml.models.tracknet import BallTracker
+    from ml.models.shot_classifier import ShotClassifier
+    import mediapipe as mp
+
+    yolo_weights = str(YOLO_PATH) if YOLO_PATH.exists() else "yolov8n.pt"
+    _models["yolo"]       = YOLO(yolo_weights)
+    _models["tracker"]    = BallTracker.load(str(TRACKNET_PATH))
+    _models["classifier"] = ShotClassifier.load(str(SHOT_CLASSIFIER_PATH))
+    _models["pose"]       = mp.solutions.pose.Pose(
+        static_image_mode=False, model_complexity=0,
+        min_detection_confidence=0.5, min_tracking_confidence=0.5,
+    )
+    print("[pipeline] all models ready")
+    return _models
 
 
 def run_pipeline(
@@ -50,41 +74,31 @@ def run_pipeline(
 
 def _run_real_pipeline(video_path: str, on_progress) -> dict:
     import cv2
-    from ultralytics import YOLO
-    from ml.models.tracknet import BallTracker
-    from ml.models.shot_classifier import ShotClassifier
     from ml.utils.video import draw_overlay, frame_to_jpeg_b64, video_metadata
 
-    # Signal that we've started (models not yet loaded)
     on_progress(0, [], None)
 
     meta = video_metadata(video_path)
     total = meta["total_frames"]
     fps   = meta["fps"]
 
-    # Load models (weights auto-download for YOLO; tracknet/classifier need training)
-    on_progress(1, [], None)   # loading models…
-    yolo_weights = str(YOLO_PATH) if YOLO_PATH.exists() else "yolov8n.pt"  # nano = faster on CPU
-    player_detector = YOLO(yolo_weights)
-    ball_tracker    = BallTracker.load(str(TRACKNET_PATH))
-    shot_classifier = ShotClassifier.load(str(SHOT_CLASSIFIER_PATH))
+    on_progress(1, [], None)   # loading / fetching cached models
+    models = _get_models()
+    player_detector = models["yolo"]
+    ball_tracker    = models["tracker"]
+    shot_classifier = models["classifier"]
+    pose_est        = models["pose"]
     on_progress(2, [], None)   # models ready
 
     cap = cv2.VideoCapture(video_path)
     shots: list[dict] = []
-    frame_buffer: list = []   # last 3 frames for TrackNet
-    pose_window: list  = []   # sliding window for shot classifier
+    frame_buffer: list = []
+    pose_window: list  = []
     prev_ball: Optional[tuple] = None
-    contact_cooldown = 0      # frames since last shot (avoid double-counting)
+    contact_cooldown = 0
 
     idx = 0
-    SKIP = 6   # process every 6th frame — faster on CPU, still ~5fps at 30fps source
-
-    import mediapipe as mp
-    pose_est = mp.solutions.pose.Pose(
-        static_image_mode=False, model_complexity=0,  # complexity=0 is ~3x faster on CPU
-        min_detection_confidence=0.5, min_tracking_confidence=0.5,
-    )
+    SKIP = 6
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -160,7 +174,7 @@ def _run_real_pipeline(video_path: str, on_progress) -> dict:
         idx += 1
 
     cap.release()
-    pose_est.close()
+    # pose_est is cached globally — don't close it
 
     public_shots = [{k: v for k, v in s.items() if not k.startswith("_")} for s in shots]
     return _build_summary(public_shots)
