@@ -61,18 +61,10 @@ class PlayerTracker:
         if not detections:
             return [None] * self.n
 
-        # First frame: seed slots by left-to-right x position
-        if not self._seeded:
-            valid = [d for d in detections if d is not None][:self.n]
-            valid.sort(key=lambda d: (d["bbox"][0] + d["bbox"][2]) / 2)
-            for i, det in enumerate(valid):
-                self.slots[i] = det
-            self._seeded = len(valid) > 0
-            return list(self.slots)
-
         result = [None] * self.n
         used   = set()
 
+        # Match detections to already-seeded slots
         for slot_idx in range(self.n):
             if self.slots[slot_idx] is None:
                 continue
@@ -95,9 +87,18 @@ class PlayerTracker:
                     best_i    = i
 
             if best_det is not None:
-                result[slot_idx]        = best_det
-                self.slots[slot_idx]    = best_det
+                result[slot_idx]     = best_det
+                self.slots[slot_idx] = best_det
                 used.add(best_i)
+
+        # Lazily seed any empty slots with leftover detections
+        remaining = [d for i, d in enumerate(detections) if i not in used]
+        remaining.sort(key=lambda d: (d["bbox"][0] + d["bbox"][2]) / 2)
+        for slot_idx in range(self.n):
+            if self.slots[slot_idx] is None and remaining:
+                det = remaining.pop(0)
+                self.slots[slot_idx] = det
+                result[slot_idx]     = det
 
         return result
 
@@ -165,7 +166,7 @@ def _run_real_pipeline(
     pose_windows: list[list] = [[] for _ in range(n_players)]
     cooldowns:    list[int]  = [0] * n_players
     idx  = 0
-    SKIP = 3
+    SKIP = 2
 
     try:
         while cap.isOpened():
