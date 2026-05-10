@@ -5,10 +5,8 @@ const SHOT_COLORS = {
   Backhand: '#C1440E',
   Serve:    '#1B4332',
   Volley:   '#2D6A4F',
-  Smash:    '#1B4332',
-  Slice:    '#888880',
+  Smash:    '#888880',
   Return:   '#2D6A4F',
-  Tweener:  '#C8E000',
 }
 
 function formatTime(t) {

@@ -11,9 +11,7 @@ const COLORS = {
   Serve:    '#1B4332',
   Volley:   '#2D6A4F',
   Smash:    '#888880',
-  Slice:    '#A3B18A',
   Return:   '#2D6A4F',
-  Tweener:  '#C8E000',
 }
 
 const MOCK_RESULTS = {
@@ -28,6 +26,8 @@ const MOCK_RESULTS = {
   ],
   rally_length: 7,
 }
+
+
 
 function PlayerBreakdown({ playerTally, total }) {
   const players = Object.entries(playerTally)
