@@ -306,8 +306,14 @@ def _run_real_pipeline(
 
                         if use_two_model:
                             is_serve   = serve_detector.is_serve(window)
-                            # For state machine, always get rally label too
-                            rally_type = rally_classifier.predict(window)
+                            proba      = rally_classifier.predict_proba(window)
+                            rally_type = max(proba, key=proba.get)
+                            confidence = proba[rally_type]
+                            # Skip low-confidence predictions to reduce false positives
+                            if not is_serve and confidence < 0.55:
+                                pose_windows[slot_idx] = pose_windows[slot_idx][-4:]
+                                cooldowns[slot_idx] = 10
+                                continue
                             shot_type  = state_machine.classify(
                                 rally_type, is_serve, slot_idx, timestamp
                             )
@@ -382,15 +388,31 @@ def _pad_to_dual(single_vec):
 
 
 def _detect_swing(pose_window: list) -> bool:
-    if len(pose_window) < 4:
+    """
+    Detect a swing by looking for a peak in wrist speed over the last 8 frames.
+    Requires the peak speed to exceed a threshold AND then drop back down,
+    which filters out slow walking/repositioning motion.
+    """
+    if len(pose_window) < 6:
         return False
     try:
         import numpy as np
-        recent = pose_window[-4:]
-        # Wrist indices in 132-dim single-player vector: left=60, right=64
-        lx = [float(v[60]) for v in recent]
-        rx = [float(v[64]) for v in recent]
-        return max(abs(lx[-1] - lx[0]), abs(rx[-1] - rx[0])) > 0.15
+        window = pose_window[-8:]
+        # Wrist x,y indices in 132-dim vector: left wrist=60,61  right wrist=64,65
+        def wrist_speed(a, b):
+            dlx = float(b[60]) - float(a[60])
+            dly = float(b[61]) - float(a[61])
+            drx = float(b[64]) - float(a[64])
+            dry = float(b[65]) - float(a[65])
+            return max((dlx**2 + dly**2)**0.5, (drx**2 + dry**2)**0.5)
+
+        speeds = [wrist_speed(window[i], window[i+1]) for i in range(len(window)-1)]
+        peak = max(speeds)
+        peak_idx = speeds.index(peak)
+        # Must have a clear peak (not just monotonically rising) and exceed threshold
+        has_rise = peak_idx > 0 and speeds[peak_idx] > speeds[peak_idx - 1]
+        has_fall = peak_idx < len(speeds) - 1 and speeds[peak_idx] > speeds[peak_idx + 1]
+        return peak > 0.08 and (has_rise or has_fall)
     except Exception:
         return False
 

@@ -6,9 +6,9 @@ Upload match footage. Get a timestamped breakdown of every shot — type, player
 
 **[View Live App](https://raquette.vercel.app)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Explore the code](https://github.com/LightAnd2/raquette)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Report Bug](https://github.com/LightAnd2/raquette/issues)**
 
-![Landing page](docs/images/landing.png)
+---
 
-![Results page](docs/images/results.png)
+![Landing page](docs/images/landing.png)
 
 ---
 
@@ -36,12 +36,20 @@ Three models run in sequence on every processed frame:
 
 A centroid-based re-identification tracker keeps each player's identity consistent across frames.
 
-**Model accuracy** (748 labeled sequences, trained on Kaggle T4 GPU)
+**Model accuracy** (748 labeled sequences, trained on Kaggle T4 GPU — actively expanding dataset)
 
 | Model | Val Accuracy |
 |-------|-------------|
 | ServeDetector | 96.4% |
 | RallyClassifier | 84.1% |
+
+> Production accuracy is still being improved as more training data is collected.
+
+---
+
+## Results
+
+![Results page](docs/images/results.png)
 
 ---
 
