@@ -57,7 +57,7 @@ export default function Landing() {
           <Upload size={24} /><strong>{busy ? 'Uploading...' : 'Upload video'}</strong><span>MP4, MOV, M4V, WebM</span>
         </button>
         <p className="muted small">Singles · Up to 256 MB · {server.max_duration_seconds} seconds</p>
-        {server.demo && <p className="demo-note">Free demo server: expect about 1.5 minutes of processing per second of video. <a href="https://github.com/LightAnd2/raquette#run-it-locally">Run Raquette locally</a> for full speed and longer clips.</p>}
+        {server.demo && <p className="muted small demo-line">This free demo is slow, about 1.5 minutes per second of video. <a href="https://github.com/LightAnd2/raquette#run-it-locally">Run it locally</a> for full speed.</p>}
         {error && <p role="alert" className="error-message">{error}</p>}
       </section>
       <section className="sample-section"><div className="section-heading"><h2>Demo clip</h2><span className="muted small">Federer v Nadal · AO 2017 · 00:08</span></div>

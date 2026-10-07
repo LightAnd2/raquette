@@ -77,6 +77,12 @@ function Playback({ data }) {
       handle = element.requestVideoFrameCallback(frame)
     }
     if (element.requestVideoFrameCallback) handle = element.requestVideoFrameCallback(frame)
+    // ?t=1.5 opens the results at that moment, e.g. to share a specific shot.
+    const start = Number(new URLSearchParams(window.location.search).get('t'))
+    if (start > 0) {
+      element.currentTime = start
+      setTime(start)
+    }
     return () => { if (handle) element.cancelVideoFrameCallback(handle) }
   }, [])
   const players = nearest(data.player_track, time, .13)?.players || []
