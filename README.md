@@ -4,13 +4,11 @@
 
 Upload a broadcast rally. See the court, the near player, every bounce (in or out), and every serve, forehand and backhand they hit, on a top-down court map next to the video.
 
+![Raquette analysing a Federer v Nadal rally](docs/images/demo.gif)
+
 **[Try the Demo](https://raquette.vercel.app)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Run It Locally](#run-it-locally)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Report Bug](https://github.com/LightAnd2/raquette/issues)**
 
 > **The live site is a demo.** It runs on free CPU hardware, so it accepts clips up to 15 seconds and takes about 1.5 minutes of processing per second of video. For full speed and clips up to 60 seconds, [run Raquette locally](#run-it-locally).
-
----
-
-![Landing page](docs/images/landing.png)
 
 ---
 
@@ -64,7 +62,9 @@ Shot types were checked by hand on 52 near-player shots from Australian Open and
 
 ---
 
-## Results
+## Screenshots
+
+![Upload page](docs/images/landing.png)
 
 ![Results page](docs/images/results.png)
 
