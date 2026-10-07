@@ -10,6 +10,9 @@ build/
 # Model weights (too large for git — stored on HF)
 ml/models/weights/*.pt
 ml/models/weights/*.pth
+# Raquette's own small shot models are committed (1.7 MB each); large third-party weights come from scripts/download_weights.py
+!ml/models/weights/serve_detector.pt
+!ml/models/weights/rally_classifier.pt
 
 # Uploaded videos
 backend/uploads/
@@ -34,3 +37,12 @@ hf-space/
 
 # Local dev memory
 .claude/
+
+# Evaluation datasets (never shipped)
+datasets/
+
+# Local scratch: test runs, uploaded clips, CatBoost training logs, pose training data
+tmp/
+uploads/
+catboost_info/
+ml/train/poses.pkl

@@ -1,10 +1,12 @@
 # Raquette
 
-### AI Tennis Shot Identifier
+### AI Tennis Rally Analysis
 
-Upload match footage. Get a timestamped breakdown of every shot — type, player, and moment of contact.
+Upload a broadcast rally. See the court, the near player, every bounce (in or out), and every serve, forehand and backhand they hit, on a top-down court map next to the video.
 
-**[View Live App](https://raquette.vercel.app)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Explore the code](https://github.com/LightAnd2/raquette)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Report Bug](https://github.com/LightAnd2/raquette/issues)**
+**[Try the Demo](https://raquette.vercel.app)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Run It Locally](#run-it-locally)**&nbsp;&nbsp;·&nbsp;&nbsp;**[Report Bug](https://github.com/LightAnd2/raquette/issues)**
+
+> **The live site is a demo.** It runs on free CPU hardware, so it accepts clips up to 15 seconds and takes about 1.5 minutes of processing per second of video. For full speed and clips up to 60 seconds, [run Raquette locally](#run-it-locally).
 
 ---
 
@@ -14,7 +16,7 @@ Upload match footage. Get a timestamped breakdown of every shot — type, player
 
 ## About
 
-Raquette is a full-stack AI application that identifies tennis shot types from match footage. Upload an MP4, enter player names, and get a shot-by-shot timeline — every forehand, backhand, serve, return, volley, and smash, attributed to the right player with timestamps.
+Raquette turns broadcast tennis footage into structured rally data. Upload a clip and it finds the court lines, tracks the ball and the near-side player, detects bounces and hits, calls bounces in or out, and labels each shot as a serve, forehand or backhand, all mapped onto a top-down court next to the video.
 
 **Why I built it**
 
@@ -26,24 +28,39 @@ Raquette is a full-stack AI application that identifies tennis shot types from m
 
 ## How It Works
 
-Three models run in sequence on every processed frame:
+| Step | Model / method | What it does |
+|------|----------------|--------------|
+| 01 | **TrackNet** | Finds the ball in every frame from three consecutive frames |
+| 02 | **Court detection** | TennisCourtDetector keypoints, with a painted-line fitter as fallback; maps image pixels to court metres. Replays and close-ups are ignored |
+| 03 | **YOLOv8n** | Finds the near-side player and places their feet on the court |
+| 04 | **Bounce classifier** | CatBoost model trained on this pipeline's own ball tracks; bounces are called in, out, or too close to call |
+| 05 | **Hit detection** | The ball's path reverses beside the player, including contacts hidden in short tracking gaps |
+| 06 | **Shot type** | Serve from the ball toss; forehand or backhand from the side of the body at contact and the player's handedness |
 
-| Step | Model | What it does |
-|------|-------|-------------|
-| 01 | **YOLOv8n** | Detects players, filters out ball boys and spectators by bounding box size and confidence |
-| 02 | **MediaPipe Pose** | Extracts 33 body landmarks per player — shoulder rotation, hip alignment, wrist angle |
-| 03 | **ServeDetector + RallyClassifier** | Two temporal CNNs: one binary (serve vs not), one 4-class (forehand / backhand / volley / smash). A state machine infers return contextually |
+---
 
-A centroid-based re-identification tracker keeps each player's identity consistent across frames.
+## Accuracy
 
-**Model accuracy** (748 labeled sequences, trained on Kaggle T4 GPU — actively expanding dataset)
+Measured on broadcast footage the models never trained on: TrackNet dataset games 8 to 10 (5,675 labelled frames). Reproduce with `python scripts/eval_tracknet.py score`.
 
-| Model | Val Accuracy |
-|-------|-------------|
-| ServeDetector | 96.4% |
-| RallyClassifier | 84.1% |
+| | Found | Correct |
+|---|---|---|
+| Ball position (within 10 px) | 94.2% | 99.7% |
+| Bounces (within 3 frames) | 82.5% | 96.2% |
+| Near-player hits (within 4 frames) | 91.8% | 97.1% |
 
-> Production accuracy is still being improved as more training data is collected.
+Shot types were checked by hand on 52 near-player shots from Australian Open and US Open broadcasts: forehand / backhand 46 of 48 correct, serves 4 of 4 with no false serves.
+
+**Supported:** landscape TV broadcast footage, singles, the near-side player. Vertical clips (e.g. YouTube Shorts) get ball, player and shots but no court map.
+
+---
+
+## Speed
+
+| Where it runs | Processing time |
+|---|---|
+| Free demo server (2 CPU cores) | about 95× the clip length (an 8 s clip takes about 13 min) |
+| Apple Silicon Mac (GPU) | about 4 to 5× the clip length (an 8 s clip takes about 30 s) |
 
 ---
 
@@ -53,59 +70,64 @@ A centroid-based re-identification tracker keeps each player's identity consiste
 
 ---
 
-## Built With
-
-**Frontend** — React + Vite · Tailwind CSS v4 · Framer Motion · Recharts · React Router
-
-**Backend** — FastAPI · uvicorn
-
-**ML** — YOLOv8n · MediaPipe Pose (Tasks API) · PyTorch (1D temporal CNN)
-
-**Infrastructure** — Vercel (frontend) · Hugging Face Spaces (backend, Docker) · Hugging Face Hub (model weights)
-
----
-
-## Getting Started
+## Run It Locally
 
 ### Prerequisites
 
-- Node.js 18+
 - Python 3.11+
+- Node.js 18+
+- An Apple Silicon Mac or an NVIDIA GPU for full speed (CPU works, but slowly)
 
-### Installation
+### Install
 
 ```bash
 git clone https://github.com/LightAnd2/raquette.git
 cd raquette
 
-# Python env
+# Python environment
 python -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
 
+# Model weights (the three large public models, about 85 MB)
+python scripts/download_weights.py
+
 # Frontend
 cd frontend && npm install && cd ..
+```
 
-# Run both
+### Run
+
+```bash
 ./dev.sh
 ```
 
-Open `http://localhost:5173`
+Open `http://localhost:5173`. Local runs accept clips up to 60 seconds.
 
 ---
 
 ## Usage
 
-1. Go to [raquette.vercel.app](https://raquette.vercel.app)
-2. Select **Singles** or **Doubles**
-3. Enter player names (optional)
-4. Drop in an MP4 of a match
-5. Watch the live shot feed, then view the full breakdown
+1. Choose whether the near player is right- or left-handed
+2. Upload a broadcast clip (MP4, MOV, M4V or WebM)
+3. Review the video with tracking overlays, the shot map, rally stats, and the rally timeline
 
 **Tips**
-- Broadcast or behind-the-baseline angles work best
-- Clips of 30s–2min process fastest on the free-tier backend
-- Clear full-swing groundstrokes give the most accurate results
+
+- The standard broadcast angle (high, behind the baseline) works best
+- One rally per clip gives the cleanest timeline
+
+---
+
+## Built With
+
+**Frontend**: React + Vite · Tailwind CSS v4 · React Router
+
+**Backend**: FastAPI · uvicorn
+
+**ML**: TrackNet · TennisCourtDetector · YOLOv8n · CatBoost · MediaPipe Pose · PyTorch
+
+**Infrastructure**: Vercel (frontend) · Hugging Face Spaces (demo backend, Docker)
 
 ---
 
@@ -113,27 +135,36 @@ Open `http://localhost:5173`
 
 ```
 raquette/
-├── frontend/              # React + Vite app
-│   └── src/
-│       ├── pages/         # Landing, Analysis (live feed), Results
-│       └── components/    # RallyTimeline, SampleAnalysis
+├── frontend/                      # React + Vite app
+│   └── src/pages/                 # Landing (upload), Analysis (progress), Results
 │
-├── backend/               # FastAPI server
-│   └── app/
-│       └── pipeline_worker.py  # ML pipeline + PlayerTracker + RallyStateMachine
+├── backend/app/
+│   ├── main.py                    # FastAPI: upload, jobs, results, video streaming
+│   ├── analytics.py               # Court, ball, player, bounce and hit pipeline
+│   └── shots.py                   # Shot types and handedness
 │
 ├── ml/
-│   ├── models/
-│   │   ├── shot_classifier.py  # ServeDetector + RallyClassifier + _TennisCNN
-│   │   └── weights/            # serve_detector.pt, rally_classifier.pt
-│   └── train/
-│       ├── extract_poses.py    # Pose extraction from labeled clips → poses.pkl
-│       └── train.py            # Training script (run on Kaggle GPU)
+│   ├── tennis_analysis/           # TrackNet and bounce detector code
+│   ├── models/shot_classifier.py  # Pose-based ServeDetector + RallyClassifier
+│   └── models/weights/            # Model weights
 │
-└── hf-space/              # Hugging Face Spaces deployment
-    ├── Dockerfile
-    └── app.py             # FastAPI entry point + weight bootstrap
+├── scripts/
+│   ├── download_weights.py        # Fetch the large public model weights
+│   ├── eval_tracknet.py           # Accuracy on held-out TrackNet games
+│   ├── train_bounce.py            # Train the bounce classifier
+│   └── split_rallies.py           # Cut a full match video into rally clips
+│
+└── deployment/spaces/             # Hugging Face Spaces demo (build.sh assembles it)
 ```
+
+---
+
+## Credits
+
+- **TrackNet**: Huang et al., "TrackNet: A Deep Learning Network for Tracking High-speed and Tiny Objects in Sports Applications" (2019); weights from the PyTorch implementation by yastrebksv
+- **TennisCourtDetector** and the original bounce regressor: yastrebksv
+- **YOLOv8**: Ultralytics
+- **MediaPipe Pose**: Google
 
 ---
 

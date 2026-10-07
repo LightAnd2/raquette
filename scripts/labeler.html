@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raquette Labeler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream:   #FAFAF7;
+    --green:   #1B4332;
+    --green20: rgba(27,67,50,0.12);
+    --green08: rgba(27,67,50,0.06);
+    --muted:   #888880;
+    --border:  rgba(27,67,50,0.15);
+    --hit:     #8B5E3C;
+    --hit-bg:  rgba(139,94,60,0.08);
+    --bounce:  #2D6A4F;
+    --bounce-bg: rgba(45,106,79,0.08);
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--cream);
+    color: var(--green);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-weight: 300;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ─────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--cream);
+  }
+
+  .wordmark {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    color: var(--green);
+  }
+  .wordmark span {
+    font-style: italic;
+    opacity: 0.5;
+    font-size: 13px;
+    margin-left: 10px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 300;
+  }
+
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 18px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-weight: 400;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--green);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .btn:hover { background: var(--green08); border-color: rgba(27,67,50,0.35); }
+  .btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+  .btn.primary { background: var(--green); color: var(--cream); border-color: var(--green); }
+  .btn.primary:hover { background: #143728; }
+  label.btn { cursor: pointer; }
+  input[type="file"] { display: none; }
+
+  /* ── Main layout ─────────────────────────── */
+  #main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+  /* ── Video area ──────────────────────────── */
+  #video-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--green);
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #drop-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: rgba(250,250,247,0.3);
+    pointer-events: none;
+  }
+  #drop-hint svg { opacity: 0.4; }
+  #drop-hint p {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 300;
+  }
+
+  video {
+    max-width: 100%;
+    max-height: 100%;
+    display: none;
+  }
+
+  /* ── Controls ────────────────────────────── */
+  #controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 24px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--cream);
+    flex-shrink: 0;
+  }
+
+  #play-btn {
+    width: 30px; height: 30px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--green);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  #play-btn:hover { background: var(--green08); }
+
+  #scrubber {
+    flex: 1;
+    height: 1px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+  #scrubber::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 10px; height: 10px;
+    background: var(--green);
+    cursor: pointer;
+  }
+
+  #time-display {
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+    min-width: 110px;
+    text-align: right;
+  }
+
+  /* ── Key hints ───────────────────────────── */
+  #key-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--cream);
+    flex-shrink: 0;
+  }
+  .hint {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .hint kbd {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 4px;
+    border: 1px solid var(--border);
+    font-size: 9px; font-family: inherit;
+    color: var(--green); letter-spacing: 0;
+  }
+  .hint.is-hit  { color: var(--hit); }
+  .hint.is-hit kbd { border-color: rgba(139,94,60,0.35); color: var(--hit); }
+  .hint.is-bounce { color: var(--bounce); }
+  .hint.is-bounce kbd { border-color: rgba(45,106,79,0.35); color: var(--bounce); }
+
+  #counts {
+    margin-left: auto;
+    display: flex; gap: 16px;
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .c-hit { color: var(--hit); }
+  .c-bounce { color: var(--bounce); }
+
+  /* ── Timeline ────────────────────────────── */
+  #timeline-area {
+    flex-shrink: 0;
+    height: 64px;
+    background: var(--cream);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  #timeline-canvas { width: 100%; height: 100%; display: block; }
+  #tl-cursor {
+    position: absolute; top: 0; bottom: 0;
+    width: 1px; background: var(--green);
+    opacity: 0.4;
+    pointer-events: none;
+    transform: translateX(-50%);
+  }
+
+  /* ── Markers panel ───────────────────────── */
+  #markers-panel {
+    flex-shrink: 0;
+    height: 96px;
+    background: var(--cream);
+    overflow-y: auto;
+    padding: 10px 24px;
+  }
+  #markers-panel::-webkit-scrollbar { width: 3px; }
+  #markers-panel::-webkit-scrollbar-thumb { background: var(--border); }
+
+  #markers-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-content: flex-start;
+  }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-weight: 400;
+  }
+  .chip.hit    { border-color: rgba(139,94,60,0.3); background: var(--hit-bg); color: var(--hit); }
+  .chip.bounce { border-color: rgba(45,106,79,0.3); background: var(--bounce-bg); color: var(--bounce); }
+  .chip:hover  { opacity: 0.6; }
+  .chip .x     { font-size: 9px; color: var(--muted); margin-left: 2px; cursor: pointer; }
+  .chip .x:hover { color: #c04; }
+
+  .empty-msg {
+    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted); opacity: 0.5; padding-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">Raquette <span>Labeler</span></div>
+  <div class="header-actions">
+    <label class="btn" for="file-input">Open Video</label>
+    <input type="file" id="file-input" accept="video/*">
+    <button class="btn" id="undo-btn" disabled>Undo</button>
+    <button class="btn primary" id="export-btn" disabled>Export JSON</button>
+  </div>
+</header>
+
+<div id="main">
+  <div id="video-wrap">
+    <div id="drop-hint">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <rect x="3" y="3" width="18" height="14" rx="1"/>
+        <path d="M8 21h8M12 17v4"/>
+      </svg>
+      <p>Open a video file above or drag &amp; drop here</p>
+    </div>
+    <video id="video" preload="auto"></video>
+  </div>
+
+  <div id="controls">
+    <button id="play-btn">
+      <svg id="play-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg id="pause-icon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+    <input type="range" id="scrubber" min="0" max="1000" value="0">
+    <span id="time-display">0:00.00 / 0:00.00</span>
+  </div>
+
+  <div id="key-row">
+    <div class="hint is-bounce"><kbd>B</kbd> Bounce</div>
+    <div class="hint is-hit"><kbd>H</kbd> Hit</div>
+    <div class="hint"><kbd>Space</kbd> Play / Pause</div>
+    <div class="hint"><kbd>←</kbd><kbd>→</kbd> ±0.1s</div>
+    <div class="hint"><kbd>Z</kbd> Undo</div>
+    <div id="counts">
+      <span class="c-bounce">Bounces: <span id="n-bounce">0</span></span>
+      <span class="c-hit">Hits: <span id="n-hit">0</span></span>
+    </div>
+  </div>
+
+  <div id="timeline-area">
+    <canvas id="timeline-canvas"></canvas>
+    <div id="tl-cursor"></div>
+  </div>
+
+  <div id="markers-panel">
+    <div id="markers-list"><div class="empty-msg">No markers yet</div></div>
+  </div>
+</div>
+
+<script>
+const video      = document.getElementById('video');
+const fileInput  = document.getElementById('file-input');
+const scrubber   = document.getElementById('scrubber');
+const timeDisp   = document.getElementById('time-display');
+const playBtn    = document.getElementById('play-btn');
+const playIcon   = document.getElementById('play-icon');
+const pauseIcon  = document.getElementById('pause-icon');
+const exportBtn  = document.getElementById('export-btn');
+const undoBtn    = document.getElementById('undo-btn');
+const mList      = document.getElementById('markers-list');
+const dropHint   = document.getElementById('drop-hint');
+const tlCanvas   = document.getElementById('timeline-canvas');
+const tlCursor   = document.getElementById('tl-cursor');
+const tlArea     = document.getElementById('timeline-area');
+const nBounce    = document.getElementById('n-bounce');
+const nHit       = document.getElementById('n-hit');
+
+let markers = [];
+let loaded  = false;
+let fps     = 30;
+
+const fmt = t => {
+  const m = Math.floor(t / 60);
+  const s = (t % 60).toFixed(2).padStart(5, '0');
+  return `${m}:${s}`;
+};
+
+// ── Load file ──────────────────────────────────
+function loadFile(file) {
+  if (!file || !file.type.startsWith('video/')) return;
+  video.src = URL.createObjectURL(file);
+  video.style.display = 'block';
+  dropHint.style.display = 'none';
+  video.onloadedmetadata = () => {
+    loaded = true; markers = [];
+    renderMarkers(); drawTimeline();
+  };
+}
+fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+document.getElementById('video-wrap').addEventListener('dragover', e => e.preventDefault());
+document.getElementById('video-wrap').addEventListener('drop', e => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); });
+
+// ── Marker add ─────────────────────────────────
+function addMarker(label) {
+  if (!loaded) return;
+  markers.push({ t: video.currentTime, frame: Math.round(video.currentTime * fps), label });
+  markers.sort((a, b) => a.t - b.t);
+  renderMarkers(); drawTimeline();
+  undoBtn.disabled = false;
+  flashLabel(label);
+}
+
+function flashLabel(label) {
+  const el = document.createElement('div');
+  el.textContent = label === 'hit' ? 'Hit' : 'Bounce';
+  el.style.cssText = `
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:'Playfair Display',Georgia,serif; font-style:italic;
+    font-size:52px; font-weight:400; letter-spacing:0.02em;
+    color:${label === 'hit' ? 'var(--hit,#8B5E3C)' : 'var(--bounce,#2D6A4F)'};
+    pointer-events:none; opacity:1; transition:opacity 0.5s;
+  `;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 520); });
+}
+
+// ── Render chips ───────────────────────────────
+function renderMarkers() {
+  nHit.textContent    = markers.filter(m => m.label === 'hit').length;
+  nBounce.textContent = markers.filter(m => m.label === 'bounce').length;
+  exportBtn.disabled  = markers.length === 0;
+  undoBtn.disabled    = markers.length === 0;
+
+  if (!markers.length) { mList.innerHTML = '<div class="empty-msg">No markers yet</div>'; return; }
+  mList.innerHTML = '';
+  markers.forEach((m, i) => {
+    const chip = document.createElement('div');
+    chip.className = `chip ${m.label}`;
+    chip.innerHTML = `${fmt(m.t)}<span class="x" title="Remove">✕</span>`;
+    chip.querySelector('.x').addEventListener('click', e => {
+      e.stopPropagation();
+      markers.splice(i, 1); renderMarkers(); drawTimeline();
+    });
+    chip.addEventListener('click', () => { video.currentTime = m.t; });
+    mList.appendChild(chip);
+  });
+}
+
+// ── Timeline ───────────────────────────────────
+function drawTimeline() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = tlArea.clientWidth, h = tlArea.clientHeight;
+  tlCanvas.width = w * dpr; tlCanvas.height = h * dpr;
+  tlCanvas.style.width = w + 'px'; tlCanvas.style.height = h + 'px';
+  const ctx = tlCanvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  // background subtle grid lines
+  ctx.strokeStyle = 'rgba(27,67,50,0.06)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const y = (h / 4) * i;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  const dur = video.duration || 1;
+  markers.forEach(m => {
+    const x = (m.t / dur) * w;
+    const isHit = m.label === 'hit';
+    ctx.strokeStyle = isHit ? 'rgba(139,94,60,0.5)' : 'rgba(45,106,79,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+
+    if (isHit) {
+      ctx.fillStyle = 'rgba(139,94,60,0.8)';
+      ctx.beginPath();
+      ctx.moveTo(x, h/2 - 6); ctx.lineTo(x + 5, h/2);
+      ctx.lineTo(x, h/2 + 6); ctx.lineTo(x - 5, h/2);
+      ctx.closePath(); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(45,106,79,0.8)';
+      ctx.beginPath(); ctx.arc(x, h/2, 4, 0, Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+tlArea.addEventListener('click', e => {
+  if (!loaded) return;
+  const rect = tlArea.getBoundingClientRect();
+  video.currentTime = ((e.clientX - rect.left) / rect.width) * video.duration;
+});
+
+// ── rAF loop ───────────────────────────────────
+(function tick() {
+  if (video.duration) {
+    timeDisp.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
+    scrubber.value = Math.round((video.currentTime / video.duration) * 1000);
+    tlCursor.style.left = (video.currentTime / video.duration * 100) + '%';
+  }
+  requestAnimationFrame(tick);
+})();
+
+// ── Controls ───────────────────────────────────
+video.addEventListener('play',  () => { playIcon.style.display='none'; pauseIcon.style.display=''; });
+video.addEventListener('pause', () => { playIcon.style.display=''; pauseIcon.style.display='none'; });
+
+playBtn.addEventListener('click', () => { if (!loaded) return; video.paused ? video.play() : video.pause(); });
+scrubber.addEventListener('input', () => { if (video.duration) video.currentTime = (scrubber.value/1000)*video.duration; });
+
+exportBtn.addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(markers, null, 2)], {type:'application/json'}));
+  a.download = 'labels.json';
+  a.click();
+});
+
+undoBtn.addEventListener('click', () => {
+  if (!markers.length) return;
+  markers.pop(); renderMarkers(); drawTimeline();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === ' ')            { e.preventDefault(); if (loaded) video.paused ? video.play() : video.pause(); }
+  else if (e.key === 'h' || e.key === 'H') addMarker('hit');
+  else if (e.key === 'b' || e.key === 'B') addMarker('bounce');
+  else if ((e.key === 'z' || e.key === 'Z') && !e.metaKey && !e.ctrlKey) {
+    if (markers.length) { markers.pop(); renderMarkers(); drawTimeline(); }
+  }
+  else if (e.key === 'ArrowLeft')  { e.preventDefault(); video.currentTime = Math.max(0, video.currentTime-0.1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); video.currentTime = Math.min(video.duration||0, video.currentTime+0.1); }
+});
+
+window.addEventListener('resize', drawTimeline);
+</script>
+</body>
+</html>

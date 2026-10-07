@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "court": {
+    "width": 166,
+    "height": 350,
+    "netY": 175,
+    "runoff": 34,
+    "svgScale": 2.2,
+    "singles": { "xMin": 13, "xMax": 153, "yMin": 0, "yMax": 350 },
+    "lines": [
+      { "x1": 0, "y1": 0, "x2": 166, "y2": 0 },
+      { "x1": 0, "y1": 350, "x2": 166, "y2": 350 },
+      { "x1": 0, "y1": 0, "x2": 0, "y2": 350 },
+      { "x1": 166, "y1": 0, "x2": 166, "y2": 350 },
+      { "x1": 13, "y1": 0, "x2": 13, "y2": 350 },
+      { "x1": 153, "y1": 0, "x2": 153, "y2": 350 },
+      { "x1": 0, "y1": 175, "x2": 166, "y2": 175 },
+      { "x1": 13, "y1": 101, "x2": 153, "y2": 101 },
+      { "x1": 83, "y1": 101, "x2": 83, "y2": 175 },
+      { "x1": 13, "y1": 175, "x2": 153, "y2": 175 },
+      { "x1": 13, "y1": 249, "x2": 153, "y2": 249 },
+      { "x1": 83, "y1": 175, "x2": 83, "y2": 249 },
+      { "x1": 83, "y1": 0, "x2": 83, "y2": 6 },
+      { "x1": 83, "y1": 344, "x2": 83, "y2": 350 }
+    ]
+  },
+  "homography": {
+    "validRawMaxX": 1665,
+    "validRawMaxY": 3506,
+    "scaleToCourt": 10
+  },
+  "imageToCourtFallback": {
+    "clampXMin": -10,
+    "clampXMargin": 10,
+    "clampYMin": -20
+  },
+  "playerPick": {
+    "imageFallbackHeightScale": 350,
+    "topHalfYMax": 220,
+    "bottomHalfYMin": 175,
+    "topScore": { "centerX": 83, "centerY": 135, "weightX": 120, "weightY": 8 },
+    "bottomScore": { "centerX": 83, "centerXWeight": 12, "yWeight": 35 }
+  },
+  "geometricBounce": {
+    "absDySumMin": 18,
+    "speedChangeMin": 22,
+    "largeJumpAbsDy": 90,
+    "largeJumpDtMax": 8,
+    "minSepFrames": 7,
+    "maxBounces": 6
+  },
+  "hitEvents": {
+    "bounceFrameGap": 3,
+    "turnMin": 12,
+    "accelMin": 24,
+    "mergeFrameGap": 8,
+    "scoreDivisor": 140,
+    "minProximityDefault": 160,
+    "bounceGapBoostThreshold": 8,
+    "bounceGapBoostWeight": 4
+  },
+  "coverageGrid": { "cellSize": 10 }
+}

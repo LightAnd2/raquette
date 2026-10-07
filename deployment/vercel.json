@@ -12,7 +12,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://YOUR_HF_USERNAME-raquette.hf.space/api/$1"
+      "dest": "https://lightand2-raquette.hf.space/api/$1"
     },
     {
       "src": "/(.*)",
