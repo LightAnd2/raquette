@@ -102,7 +102,13 @@ cd frontend && npm install && cd ..
 ./dev.sh
 ```
 
-Open `http://localhost:5173`. Local runs accept clips up to 60 seconds.
+Open `http://localhost:5173`. Local runs accept clips up to 60 seconds. For longer clips, raise the upload limit:
+
+```bash
+RAQUETTE_MAX_SECONDS=180 ./dev.sh
+```
+
+The limit only applies to uploads in the web app; the pipeline itself has no length limit.
 
 ---
 

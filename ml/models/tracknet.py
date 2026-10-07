@@ -1,5 +1,5 @@
 """
-TrackNet V2 — high-speed small object tracking for tennis ball.
+TrackNet V2: high-speed small object tracking for tennis ball.
 
 Architecture matches yastrebksv/TrackNet pretrained weights:
   - VGG-style encoder (9-channel input = 3 stacked RGB frames)
@@ -24,7 +24,7 @@ from typing import Optional
 # ── Architecture ──────────────────────────────────────────────────────────────
 
 class _ConvBlock(nn.Module):
-    """Conv2d + ReLU + BatchNorm2d — order matches pretrained weight keys
+    """Conv2d + ReLU + BatchNorm2d: order matches pretrained weight keys
     (block.0=Conv, block.1=ReLU has no params, block.2=BN)."""
     def __init__(self, in_ch: int, out_ch: int):
         super().__init__()
@@ -41,7 +41,7 @@ class _ConvBlock(nn.Module):
 class TrackNetV2(nn.Module):
     """
     Encoder-decoder network matching yastrebksv/TrackNet pretrained weights.
-    Input:  (B, 9, H, W) — three RGB frames stacked along channel dim
+    Input:  (B, 9, H, W): three RGB frames stacked along channel dim
     Output: (B, 1, H, W) heatmap in [0, 1]
     """
 
@@ -82,7 +82,7 @@ class TrackNetV2(nn.Module):
         x = self.pool(x)
         x = self.conv10(self.conv9(self.conv8(x))) # 512 ch
 
-        # Decoder (bilinear upsampling — no skip connections)
+        # Decoder (bilinear upsampling: no skip connections)
         x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
         x = self.conv13(self.conv12(self.conv11(x)))   # 256 ch
 
@@ -135,9 +135,9 @@ class BallTracker:
                 model.load_state_dict(state, strict=False)
                 print(f"[TrackNet] weights loaded from {path}")
             except Exception as e:
-                print(f"[TrackNet] could not load weights: {e} — running untrained")
+                print(f"[TrackNet] could not load weights ({e}), running untrained")
         else:
-            print(f"[TrackNet] weights not found at {path} — running untrained")
+            print(f"[TrackNet] weights not found at {path}: running untrained")
         return cls(model, device)
 
     def predict(self, frames: list) -> Optional[tuple[float, float]]:
@@ -220,7 +220,7 @@ def make_gaussian_heatmap(
 
 
 class TrackNetLoss(nn.Module):
-    """Weighted BCE loss — heavily penalises missing the ball."""
+    """Weighted BCE loss: heavily penalises missing the ball."""
 
     def __init__(self, pos_weight: float = 10.0):
         super().__init__()

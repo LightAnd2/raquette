@@ -28,7 +28,7 @@ class YoloPersonDetector:
     def detect(self, image: np.ndarray, person_min_score: float = 0.42):
         """
         image: BGR uint8 (OpenCV).
-        Returns (list of xyxy numpy arrays, list of float scores) — same contract as PersonDetector.detect.
+        Returns (list of xyxy numpy arrays, list of float scores): same contract as PersonDetector.detect.
         """
         res = self.model.predict(
             source=image,

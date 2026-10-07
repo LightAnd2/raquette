@@ -1,5 +1,5 @@
 """
-extract_poses.py — extract pose sequences from labeled tennis clips.
+extract_poses.py: extract pose sequences from labeled tennis clips.
 
 Reads labels.csv, runs YOLO + MediaPipe on a window around each labeled frame,
 and saves pose sequences to poses.pkl for training on Kaggle.
@@ -8,12 +8,12 @@ Usage:
     python ml/train/extract_poses.py
 
 Output:
-    ml/train/poses.pkl  — dict with keys:
-        'X'       : np.ndarray (N, 16, 132) — pose sequences
-        'y_serve' : np.ndarray (N,)          — binary (1=Serve, 0=Not-Serve)
-        'y_rally' : np.ndarray (N,)          — 4-class index (for non-serve shots)
-        'labels'  : list[str]                — original label strings
-        'classes' : list[str]                — RALLY_CLASSES
+    ml/train/poses.pkl : dict with keys:
+        'X'       : np.ndarray (N, 16, 132): pose sequences
+        'y_serve' : np.ndarray (N,)         : binary (1=Serve, 0=Not-Serve)
+        'y_rally' : np.ndarray (N,)         : 4-class index (for non-serve shots)
+        'labels'  : list[str]               : original label strings
+        'classes' : list[str]               : RALLY_CLASSES
 """
 
 import sys
@@ -193,7 +193,7 @@ def main():
     for video_name, video_rows in by_video.items():
         video_path = CLIPS_DIR / video_name
         if not video_path.exists():
-            print(f"  [skip] {video_name} — file not found")
+            print(f"  [skip] {video_name}: file not found")
             skipped += len(video_rows)
             continue
 

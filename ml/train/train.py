@@ -1,5 +1,5 @@
 """
-train.py — train ServeDetector and RallyClassifier from extracted poses.
+train.py: train ServeDetector and RallyClassifier from extracted poses.
 
 Run on Kaggle (GPU) after uploading poses.pkl as a dataset.
 
@@ -7,8 +7,8 @@ Usage:
     python train.py [--poses path/to/poses.pkl] [--out path/to/weights/]
 
 Outputs:
-    serve_detector.pt    — binary serve classifier
-    rally_classifier.pt  — 4-class rally classifier
+    serve_detector.pt   : binary serve classifier
+    rally_classifier.pt : 4-class rally classifier
 """
 
 import argparse
@@ -113,7 +113,7 @@ def train_model(
     best_state   = None
 
     for epoch in range(1, epochs + 1):
-        # — Train
+        # Train
         model.train()
         train_loss = 0.0
         correct    = 0
@@ -132,7 +132,7 @@ def train_model(
         train_acc  = correct / total_seen
         train_loss /= total_seen
 
-        # — Validate
+        # Validate
         model.eval()
         val_loss = 0.0
         val_correct = 0
@@ -266,7 +266,7 @@ def main():
     print(f"  Class distribution: {Counter(labels_r)}")
 
     if len(X_r) < 20:
-        print("  ⚠ Not enough rally samples — skipping rally classifier training")
+        print("  ⚠ Not enough rally samples: skipping rally classifier training")
         return
 
     X_tr, y_tr, X_va, y_va = train_split(X_r, y_r)

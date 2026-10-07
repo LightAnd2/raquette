@@ -7,7 +7,7 @@ dist/
 build/
 .eggs/
 
-# Model weights (too large for git — stored on HF)
+# Large model weights (fetched by scripts/download_weights.py)
 ml/models/weights/*.pt
 ml/models/weights/*.pth
 # Raquette's own small shot models are committed (1.7 MB each); large third-party weights come from scripts/download_weights.py

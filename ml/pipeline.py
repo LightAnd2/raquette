@@ -1,5 +1,5 @@
 """
-Raquette — core inference pipeline
+Raquette: core inference pipeline
 Orchestrates: YOLOv8 (players) → TrackNet (ball) → MediaPipe (pose) → ShotClassifier
 """
 
@@ -58,7 +58,7 @@ class RaquettePipeline:
         self._player_detector = YOLO("models/player_detector.pt")
 
     def _load_ball_tracker(self):
-        # TrackNet v2 — specialised for high-speed small object tracking
+        # TrackNet v2: specialised for high-speed small object tracking
         # Model weights: https://github.com/TrackNetTeam/TrackNet
         from ml.models.tracknet import TrackNetV2
         self._ball_tracker = TrackNetV2.load("models/tracknet.pt", device=self.device)

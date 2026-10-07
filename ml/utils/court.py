@@ -1,5 +1,5 @@
 """
-Court homography — maps pixel coordinates to normalised court coordinates.
+Court homography: maps pixel coordinates to normalised court coordinates.
 
 A tennis court is 23.77m × 10.97m (singles). We normalise to [0,1] × [0,1]
 so heatmaps are resolution-independent.
@@ -52,11 +52,11 @@ class CourtMapper:
             if event == cv2.EVENT_LBUTTONDOWN and len(points) < 4:
                 points.append([x, y])
                 cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
-                cv2.imshow("Calibrate court — click TL, TR, BR, BL", frame)
+                cv2.imshow("Calibrate court: click TL, TR, BR, BL", frame)
 
-        cv2.namedWindow("Calibrate court — click TL, TR, BR, BL")
-        cv2.setMouseCallback("Calibrate court — click TL, TR, BR, BL", on_click)
-        cv2.imshow("Calibrate court — click TL, TR, BR, BL", frame)
+        cv2.namedWindow("Calibrate court: click TL, TR, BR, BL")
+        cv2.setMouseCallback("Calibrate court: click TL, TR, BR, BL", on_click)
+        cv2.imshow("Calibrate court: click TL, TR, BR, BL", frame)
 
         while len(points) < 4:
             if cv2.waitKey(50) == 27:
@@ -107,7 +107,7 @@ def auto_detect_court(frame: np.ndarray) -> Optional[np.ndarray]:
     Attempt to automatically detect court lines using edge detection + Hough.
     Returns (4, 2) pixel corner array or None if detection fails.
 
-    This is a best-effort heuristic — for production, manual calibration gives
+    This is a best-effort heuristic: for production, manual calibration gives
     more reliable results.
     """
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

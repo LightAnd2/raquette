@@ -91,7 +91,7 @@ def draw_overlay(
 ) -> np.ndarray:
     """
     Render detection overlays onto a frame copy.
-    Returns a new BGR array — does not modify in place.
+    Returns a new BGR array: does not modify in place.
     """
     out = frame.copy()
 

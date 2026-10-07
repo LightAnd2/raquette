@@ -1,10 +1,10 @@
 """
-shot_classifier.py — two-model shot classification system.
+shot_classifier.py: two-model shot classification system.
 
-Model 1 — ServeDetector:   binary (Serve / Not-Serve)
-Model 2 — RallyClassifier: 4-class (Forehand, Backhand, Volley, Smash)
+Model 1, ServeDetector:   binary (Serve / Not-Serve)
+Model 2, RallyClassifier: 4-class (Forehand, Backhand, Volley, Smash)
 
-Return is NOT learned visually — it is inferred by the pipeline state machine.
+Return is NOT learned visually: it is inferred by the pipeline state machine.
 """
 
 import torch
@@ -18,7 +18,7 @@ RALLY_CLASSES = ["Forehand", "Backhand", "Volley", "Smash"]
 
 # Single-player pose vector: 33 landmarks × 4 (x, y, z, visibility)
 LANDMARKS_PER_PLAYER = 33 * 4   # 132
-DEFAULT_INPUT_SIZE    = LANDMARKS_PER_PLAYER * 2   # 264 — kept for backward compat
+DEFAULT_INPUT_SIZE    = LANDMARKS_PER_PLAYER * 2   # 264: kept for backward compat
 
 
 # ── Shared CNN backbone ───────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ class ServeDetector:
         input_size = LANDMARKS_PER_PLAYER  # 132
 
         if not Path(path).exists():
-            print(f"[ServeDetector] No weights at {path} — using untrained model")
+            print(f"[ServeDetector] No weights at {path}: using untrained model")
             model = _TennisCNN(input_size, num_classes=2)
             return cls(model, device=device)
 
@@ -170,7 +170,7 @@ class ServeDetector:
             threshold  = ckpt.get('threshold', 0.5)
             model      = _TennisCNN(input_size, num_classes=2)
             model.load_state_dict(state)
-            print(f"[ServeDetector] Loaded — input_size={input_size}, threshold={threshold:.2f}")
+            print(f"[ServeDetector] Loaded: input_size={input_size}, threshold={threshold:.2f}")
             return cls(model, threshold=threshold, device=device)
 
         # Raw state dict fallback
@@ -215,7 +215,7 @@ class RallyClassifier:
         classes    = RALLY_CLASSES
 
         if not Path(path).exists():
-            print(f"[RallyClassifier] No weights at {path} — using untrained model")
+            print(f"[RallyClassifier] No weights at {path}: using untrained model")
             model = _TennisCNN(input_size, num_classes=len(classes))
             return cls(model, classes, device)
 
@@ -225,7 +225,7 @@ class RallyClassifier:
             input_size = ckpt.get('input_size', input_size)
             model      = _TennisCNN(input_size, num_classes=len(classes))
             model.load_state_dict(ckpt['model_state_dict'])
-            print(f"[RallyClassifier] Loaded — {len(classes)} classes: {classes}, input_size={input_size}")
+            print(f"[RallyClassifier] Loaded: {len(classes)} classes: {classes}, input_size={input_size}")
             return cls(model, classes, device)
 
         model = _TennisCNN(input_size, num_classes=len(classes))
@@ -271,7 +271,7 @@ class ShotClassifier:
     @classmethod
     def load(cls, path: str, device: str = "cpu") -> "ShotClassifier":
         if not Path(path).exists():
-            print(f"[ShotClassifier] No weights at {path} — using untrained model")
+            print(f"[ShotClassifier] No weights at {path}: using untrained model")
             model = ShotCNN(DEFAULT_INPUT_SIZE, len(SHOT_CLASSES))
             return cls(model, SHOT_CLASSES, DEFAULT_INPUT_SIZE, device)
 
@@ -283,10 +283,10 @@ class ShotClassifier:
             state      = ckpt['model_state_dict']
             if any(k.startswith('net.') for k in state):
                 model = ShotCNNFlat(input_size, len(classes))
-                print(f"[ShotClassifier] Detected flat (net.*) checkpoint — {len(classes)} classes")
+                print(f"[ShotClassifier] Detected flat (net.*) checkpoint: {len(classes)} classes")
             else:
                 model = ShotCNN(input_size, len(classes))
-                print(f"[ShotClassifier] Detected split checkpoint — {len(classes)} classes")
+                print(f"[ShotClassifier] Detected split checkpoint: {len(classes)} classes")
             model.load_state_dict(state)
             return cls(model, classes, input_size, device)
 
